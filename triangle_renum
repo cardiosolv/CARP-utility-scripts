@@ -1,0 +1,48 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+unless(@ARGV == 2 || @ARGV ==3 ){
+    die "Usage: triangle_renum <renum file> <triangle file> [base shift]\n";
+}
+
+my $shift = 0;
+
+open(TRIS, "<$ARGV[1]") || die "Failed to open file $ARGV[1]: $!\n";
+chomp(my @trilines = <TRIS>);
+close(TRIS);
+
+my @newtris = ();
+
+open(RENUM, "<$ARGV[0]") || die "Failed to open file $ARGV[0]: $!\n";
+chomp(my @renum = <RENUM>);
+close(RENUM);
+
+## Base shift if necessary
+
+if(@ARGV == 3){
+    $shift = $ARGV[2];    
+    for(my $i = 0; $i < @renum; $i++){
+	$renum[$i] += $shift;
+    }
+    unshift(@renum, "0");
+}
+
+## MEAT
+
+for(my $i = 0; $i < @trilines; $i++){
+    my @tmp = split(/\s+/, $trilines[$i]);
+    for(my $j = 0; $j < @tmp; $j++){
+	$tmp[$j] = $renum[$tmp[$j]];
+	$newtris[$i] .= $tmp[$j] . " ";
+    }
+}
+
+## END MEAT
+
+
+open(NEW, ">newtri") || die "Failed to open newtri: $!\n";
+foreach my $line (@newtris){
+    print NEW $line . "\n";
+}
+close(NEW);

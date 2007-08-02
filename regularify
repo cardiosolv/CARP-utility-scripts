@@ -1,0 +1,37 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+unless(@ARGV == 2){
+    die "Usage: regularify <filename> <precision>\n";
+}
+
+open(FILE, "<$ARGV[0]") || die "Failed to open $ARGV[0]: $!\n";
+chomp(my @file = <FILE>);
+close(FILE);
+
+my @newfile = ();
+
+foreach my $line(@file){
+    my @tmp = split(/\s+/, $line);
+    my $newline = '';
+
+    unless(@tmp == 1){
+	foreach my $value (@tmp){
+	    while(length($value) > $ARGV[1]){
+		chop($value);
+	    }
+	    $newline .= $value . " ";
+	}
+	chop($newline); # remove extra space
+    }else{
+	$newline = $line;
+    }
+    push(@newfile, $newline);
+}
+
+open(OUT, ">$ARGV[0].regular") || die "Failed to open file $ARGV[0].regular: $!\n";
+foreach my $line(@newfile){
+    print OUT $line . "\n";
+}
+close(OUT);

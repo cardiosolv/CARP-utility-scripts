@@ -1,0 +1,19 @@
+#!/usr/bin/perl -w
+
+# Finds the highest-numbered tfile because I'm sick of looking for
+# them by hand.
+
+use strict;
+
+chomp(my @files = glob "*.t[0-9]*");
+
+my $maxnum = 0;
+
+foreach my $file (@files){
+    chomp(my @temp = split(/\.t/, $file));
+    if($temp[1] > $maxnum){
+	$maxnum = $temp[1];
+    }
+}
+
+print "$maxnum\n";

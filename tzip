@@ -1,0 +1,1 @@
+for i in "*.t[0-9]*"; do gzip $i; done

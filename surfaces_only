@@ -1,0 +1,109 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+unless(@ARGV > 2){
+    die "Usage: surfaces_only <pts file> <surface 1> [surface 2] [surface n]...\n";
+}
+
+my @args = @ARGV;
+
+my $filename = shift(@args);
+my $surfct = @args;
+
+open(PTS, "<$filename") || die "Failed to open file $filename: $!\n";
+chomp(my @points = <PTS>);
+close(PTS);
+
+# This will keep track of points that are required by the surfaces
+my %usedpts = ();
+
+# Pad because the input from the surfaces is base1
+sub header_check{
+    my @tmp = split(/\s+/, $points[0]);
+    if(@tmp > 1){
+	unshift(@points, "");
+    }
+}
+
+&header_check;
+
+# Load all used points. There will be duplicates
+foreach my $surf_file(@args){
+    open(SURF, "<$surf_file") || die "Failed to open surface file $surf_file: $!\n";
+    chomp(my @surface = <SURF>);
+    close(SURF);
+
+    foreach my $line(@surface){
+	my @tmp = split(/\s+/, $line);
+	foreach my $node (@tmp){
+	    unless(defined $usedpts{$node}){
+		$usedpts{$node} = 1;
+	    }else{
+		$usedpts{$node}++;
+	    }
+	}
+    }
+}
+
+my @uniqpts = (keys %usedpts);
+
+# We don't need this hash anymore
+undef %usedpts;
+
+# It's best if this is in numerical order
+@uniqpts = sort({$a <=> $b} @uniqpts);
+
+# Now, we need to move the data from every point that is used, and we
+# need to also write a renumbering file for triangle_renum.
+# Everything is base1.
+
+open(NEWPTS, ">$filename.new") || die "Failed to open file $filename.new: $!\n";
+foreach my $number (@uniqpts){
+    print STDERR $number . "\n";
+    print NEWPTS $points[$number] . "\n";
+}
+close(NEWPTS);
+
+# This is no longer needed
+undef @points;
+
+# Convert the array we have to a hash... we want to look up by old point number and get new
+my %rlookup = ();
+
+my $index = 1;
+foreach my $value (@uniqpts){
+    $rlookup{$value} = $index;
+    $index++;
+}
+
+# now we're done with the uniqpts array
+undef @uniqpts;
+
+foreach my $surf (@args){
+    open(FILE, "<$surf") || die "Failed to open file $surf: $!\n";
+    chomp(my @surffile = <FILE>);
+    close(FILE);
+    
+    # Renumber!
+    for(my $i = 0; $i < @surffile; $i++){
+	my @tmp = split(/\s+/, $surffile[$i]);
+	my $newline = '';
+	
+	foreach my $value (@tmp){
+	    $newline .= $rlookup{$value} . " ";
+	}
+	
+	chop($newline); # remove trailing space
+	
+	$surffile[$i] = $newline;
+    }
+    
+    open(RENUM, ">$surf.renumbered") || die "Failed to open file $surf.renumbered: $!\n";
+
+    foreach my $line (@surffile){
+	print RENUM $line . "\n";
+    }
+
+    close(RENUM);
+}

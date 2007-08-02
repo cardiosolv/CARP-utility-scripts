@@ -1,0 +1,80 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+$| = 1;
+
+unless(@ARGV >= 1){
+    die "Usage: separate_edges <edges file> [nodect threshold]\n";
+}
+
+my $filename_in = $ARGV[0];
+my @filename_parts = split(/\./, $filename_in);
+
+open(EDGES, "<$filename_in") || die "Failed to open $filename_in: $!\n";
+chomp(my @edges = <EDGES>);
+close(EDGES);
+
+my @surfaces = ();
+
+sub follow{
+    my($anchor, $tail) = @_;
+    my $string = "$anchor $tail\n";
+#    print STDERR "Following $string";
+    my $found = 0;
+    my $line = 0;
+
+    while(!$found && $line < @edges){
+	if($edges[$line] eq "#" ||
+	   $edges[$line] eq "$anchor $tail" ||
+	   $edges[$line] eq "$tail $anchor"){
+	    $line++;
+	    next;
+	}
+	
+	my @tmp = split(/\s+/, $edges[$line]);
+	
+	if($tmp[0] == $tail){
+#	    print STDERR "*";
+	    $edges[$line] = '#';
+	    $string .= &follow($tmp[0], $tmp[1]);
+	    $found = 1;
+	}
+	if($tmp[1] == $tail && !$found){
+#	    print STDERR "*";
+	    $edges[$line] = '#';
+	    $string .= &follow($tmp[1], $tmp[0]);
+	    $found = 1;
+	}
+    $line++;
+    }
+#    print STDERR "Returning $string";
+    return $string;
+}
+
+my $border = 1;
+while(@edges){
+#    print STDERR "Border: $border\n";
+    my $line = shift(@edges);
+    next if($line eq '#');
+    
+    my @tmp = split(/\s+/, $line);
+    
+    $surfaces[$border] = &follow($tmp[0], $tmp[1]);
+    #print $surfaces[$border];
+
+    $border++;
+}
+
+for(my $surface = 1; $surface < @surfaces; $surface++){
+    	open(OUT, ">$filename_parts[0].$surface.surf") || die "Failed to open $filename_parts[0].$surface.edge\n";
+	print OUT $surfaces[$surface];
+	close(OUT);
+	
+	if(@ARGV == 2){
+	    my @tmp = split(/\s+/, `wc -l $filename_parts[0].$surface.surf`);
+	    if($tmp[1] < $ARGV[1]){
+		unlink "$filename_parts[0].$surface.surf";
+	    }
+	}
+}

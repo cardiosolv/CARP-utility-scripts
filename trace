@@ -1,0 +1,81 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+# Platform-independent tracer for a given node
+
+unless(@ARGV == 1 || @ARGV == 3){
+    die "Usage: trace <node> [(start time) (end time)]\n";
+}
+
+my $node = $ARGV[0];
+
+my ($start, $end);
+
+if(@ARGV == 3){
+    $start = $ARGV[1];
+    $end = $ARGV[2];
+}else{
+    $start = -1;
+    $end = 9999999;
+}
+
+my @files = glob "*.t[0-9]*";
+my @tmp = split(/\.t/,$files[0]);
+my $prefix = $tmp[0];
+
+print "Using file prefix: $prefix\n";
+
+# This gets any .t files available... can cause problems
+# You shouldn't use .t files for anything else...
+for(my $i = 0; $i < @files; $i++){
+    my @temp = split(/\.t/,$files[$i]);
+    $files[$i] = $temp[1];
+}
+
+# This is necessary in order to load the files sequentially
+for(my $i = 1; $i < @files; $i++){
+    my $index = $files[$i];
+    my $j = $i;
+    while(($j > 0) && ($files[$j-1] > $index)){
+	$files[$j] = $files[$j-1];
+	$j = $j - 1;
+    }
+    $files[$j] = $index;
+}
+
+# Now we use the prefixes and sorted numbers to open each file
+
+# -- Open output file
+
+open(OUT, ">node_$node.trace");
+
+
+my $prevtime = -1;
+
+foreach my $filenum (@files){
+    my $openfile = $prefix . ".t" . $filenum;
+    open(FILE, "<$openfile");
+
+    chomp(my @lines = <FILE>);
+    close(FILE);
+
+    my @tmp = split(/ = /, $lines[0]);
+    chomp(my $time=$tmp[1]);
+    
+    my @voltsep = split(/ /,$lines[$node]);
+    my $potential = $voltsep[@voltsep-1];
+    
+    while(length($time) > 5){
+	chop $time;
+    }
+
+    if($time >= $start 
+       && $time <= $end
+       && $time != $prevtime){ 
+	print OUT "$time\t$potential\n";
+    }
+    $prevtime = $time;
+}
+
+close(OUT);

@@ -1,0 +1,37 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+use Tk;
+
+unless(@ARGV == 1){
+    die "Usage: watcher <pid>\n";
+}
+
+my $pid = $ARGV[0];
+my $process = "/proc/".$pid;
+
+my $mw = MainWindow->new;
+
+$mw->title("Process Watcher");
+
+$mw->Label( -text => 'Process complete!' )->pack( -side => 'top');
+
+$mw->Button( -command => sub{ exit; },
+	     -text => 'EXIT',
+	     -relief => 'ridge')
+    ->pack( -side => 'bottom');
+
+# my $newpid = fork();
+
+#unless($newpid == 0){
+
+#    exit 1;
+#}
+
+while ( -e $process){ sleep 30 };
+
+MainLoop;
+
+
+

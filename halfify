@@ -1,0 +1,54 @@
+#!/usr/bin/perl -w 
+
+use strict;
+
+unless(@ARGV > 1){
+    die "Usage: halfify <pts file> <edge file 1> [edge file n...]\n";
+}
+
+my %usednodes = ();
+
+for(my $i = 1; $i < @ARGV; $i++){
+    open(EDGE, "<$ARGV[$i]") || die "Failed to open edge file $ARGV[$i]: $!\n";
+    chomp(my @edge = <EDGE>);
+    close(EDGE);
+
+    my @new_edge = ();
+
+    for(my $j = 0; $j < (@edge + 1); $j+= 2){
+	my $k = $j+1;
+	
+	my @first = split(/\s+/, $edge[$j]);
+	my @second = split(/\s+/, $edge[$k]);
+
+	$usednodes{$first[0]} = 1;
+	$usednodes{$second[1]} = 1;
+
+	push(@new_edge, "$first[0] $second[1]");
+    }
+
+    open(NEWEDGE, ">$ARGV[$i].new") || die "Failed to open new edge file $ARGV[$i].new: $!\n";
+    foreach my $line(@new_edge){
+	print NEWEDGE $line . "\n";
+    }
+    close(NEWEDGE);
+}
+
+open(PTSFILE, "<$ARGV[0]") || die "Failed to open pts file $ARGV[0]: $!\n";
+chomp(my @ptsfile = <PTSFILE>);
+close(PTSFILE);
+
+my @new_pts;
+
+
+#pts file should have no header
+#edge file should be base1
+foreach my $node(sort(keys %usednodes)){
+    push(@new_pts, $ptsfile[$node-1]);
+}
+	       
+open(NEWPTS, ">$ARGV[0].new") || die "Failed to open new pts file $ARGV[1].new: $!\n";
+foreach my $line (@new_pts){
+    print NEWPTS $line . "\n";
+}
+close(NEWPTS);

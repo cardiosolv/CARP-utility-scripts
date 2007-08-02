@@ -1,0 +1,23 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+unless(@ARGV == 2){
+    die "Usage: index.pl <count> <base>\n";
+}
+
+my $count = $ARGV[0];
+my $base = $ARGV[1];
+
+my @indices = ();
+
+for(my $i = $base; $i < ($base + $count); $i++){
+    push(@indices, $i);
+}
+
+open(OUT, ">indices.txt") || die "Failed to open file indices.txt: $!\n";
+foreach my $line (@indices){
+    print OUT $line . "\n";
+}
+
+close(OUT);

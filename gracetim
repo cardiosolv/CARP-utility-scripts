@@ -1,0 +1,43 @@
+#!/usr/bin/perl -w
+
+# Generates a little stimulus trace for use in xmgrace or whatever.
+
+use strict;
+
+unless(@ARGV == 6){
+    die "Usage: gracetim <stim strength(A)> <stim dur(s)> <bcl(s)> <start time> <end time(s)> <dt>\n";
+}
+
+my $strength = $ARGV[0];
+my $duration = $ARGV[1];
+my $bcl      = $ARGV[2];
+my $start    = $ARGV[3];
+my $end      = $ARGV[4];
+my $dt       = $ARGV[5];
+
+my $ms_bcl = $bcl * 1000;
+open(OUT, ">$ms_bcl.gst") || die "Couldn't open $ms_bcl.gst: $!\n";
+
+my $time = $start;
+
+my $cycle = 0;
+
+while($time <= $end){
+    while(length $time > 5){
+	chop $time;
+    }
+
+    print OUT "$time\t";
+    if($time <= (($cycle * $bcl) + $duration)
+       && $time >= $dt){
+	print OUT "$strength\n";
+    }else{
+	print OUT "0\n";
+	if($time >= ((($cycle + 1) * $bcl)) - $dt){
+	    $cycle++;
+	}
+    }
+    $time += $dt;
+}
+
+close(OUT);

@@ -1,0 +1,76 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+unless(@ARGV == 1){
+    die "Usage: extract_edges <2D tri file>\n";
+}
+
+open(TRI, "<$ARGV[0]") || die "Failed to open file $ARGV[0]: $!\n";
+chomp(my @trifile = <TRI>);
+close(TRI);
+
+my @edges = ();
+
+# Capture all the edges
+
+foreach my $line (@trifile){
+    my @tmp = split(/\s+/, $line);
+
+    die "Bad line: $line\n" if(@tmp < 3);
+
+    # Capture all 3 edges
+    push(@edges, "$tmp[0] $tmp[1]");
+    push(@edges, "$tmp[1] $tmp[2]");
+    push(@edges, "$tmp[2] $tmp[0]");
+}
+
+# Release the original
+undef @trifile;
+
+my %lines = ();
+
+foreach my $line(@edges){
+    if(!defined $lines{$line}){
+	$lines{$line} = 1;
+    }else{
+	$lines{$line}++;
+    }
+}
+
+undef @edges;
+
+my @flipkeys = ();
+
+foreach my $key (keys %lines){
+    my @tmp = split(/\s+/, $key);
+    my $flipkey = "$tmp[1] $tmp[0]";
+
+    if(defined($lines{$flipkey})){
+	if(($lines{$key} + $lines{$flipkey}) > 1){
+	    delete $lines{$key};
+#	    delete $lines{$flipkey};
+	    push(@flipkeys, $flipkey);
+	}
+    }else{
+	if($lines{$key} > 1){
+	    delete $lines{$key};
+	}
+    }
+}
+
+foreach my $flipkey (@flipkeys){
+    delete $lines{$flipkey}
+}
+
+my @filename = split(/\./, $ARGV[0]);
+
+if(scalar(keys %lines) == 0){
+    print STDERR "Found no edges!\n";
+}
+
+open(OUT, ">$filename[0].edges") || die "Failed to open $filename[0].edges: $!\n";
+foreach my $key(keys %lines){
+    print OUT $key . "\n";
+}
+close(OUT);

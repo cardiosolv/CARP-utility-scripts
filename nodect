@@ -1,0 +1,18 @@
+#!/usr/bin/perl -w
+
+# How many nodes are in a .t file?
+
+use strict;
+
+unless(@ARGV == 1){
+    die "Usage: nodect <tfile>\n";
+}
+
+open(TFILE, "<$ARGV[0]") || die "Open file $ARGV[0] failed: $!\n";
+
+my @lines = <TFILE>;
+my $nodect = @lines - 1; # account for the 't = n.nnn' header
+
+print "$nodect\n";
+
+

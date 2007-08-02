@@ -1,0 +1,109 @@
+#!/usr/bin/perl -w
+
+# Calculates APD from max upstroke to 90% repolarization
+
+use strict;
+
+unless (@ARGV == 1 || @ARGV == 2){
+    die "Usage: apd <filename.trace> [percent repolarization]\n";
+}
+
+my $filename = $ARGV[0];
+my $repol;
+
+if(@ARGV == 2){
+    $repol = $ARGV[1] / 100;
+}else{
+    $repol = 0.9;
+}
+
+my @file = split(/\./, $filename);
+
+open(TRACE, "<$filename") || die "Couldn't open $filename: $!\n";
+chomp(my @lines = <TRACE>);
+close(TRACE);
+
+
+my $maxdv = -1;
+my $maxtime = -1;
+my $dt_at_max = 0;
+my @last;
+my $minpot = 100;
+my $maxpot = -100;
+my $stop = 0;
+
+foreach my $line (@lines){
+    my $dv;
+
+    chomp(my @temp = split(/\t/,$line));
+    # print "@temp\n";
+
+    if($temp[1] < $minpot){
+	$minpot = $temp[1];
+    }
+    if($temp[1] > $maxpot){
+	$maxpot = $temp[1];
+    }
+    
+    # print "$line; $lines[0]\n";
+    
+    unless("$line" eq "$lines[0]"){
+	# print "*\n";
+	my $numerator = ($temp[1] - $last[1]);
+	my $denominator = ($temp[0] - $last[0]);
+	# print "$numerator $denominator\n";
+
+	if($denominator != 0){
+	    $dv = $numerator / $denominator;
+	    # print "$dv\n";
+	}else{
+	    $dv = 0;
+	}
+	if($dv > $maxdv){
+	    $maxdv = $dv;
+	    $maxtime = $temp[0];
+	    $dt_at_max = $denominator;
+	}
+    }
+    @last = @temp;
+}
+
+unless($maxtime > 0){
+    die "Couldn't find upslope!\n";
+}
+
+my $threshold = $minpot + (($maxpot - $minpot) * (1-$repol));
+# print "$threshold\n";
+
+my $endtime = $maxtime;
+my $go = 1;
+
+foreach my $line (@lines){
+    if($go){
+	chomp(my @temp = split(/\t/,$line));
+	if($temp[0] > $maxtime &&
+	   $temp[1] > ($threshold)){
+	    $endtime = $temp[0];
+	}else{
+	    if($temp[0] > $maxtime){$go = 0};
+	}
+    }
+}
+	  
+open(DATA, ">$file[0].apd");
+
+my $apd = $endtime - $maxtime;
+my $magnitude = $maxpot - $minpot;
+
+print "APD: $apd\n";
+
+print DATA "$apd\n";
+my $printpol = $repol * 100;
+print DATA "Max dv:\t$maxdv\n";
+print DATA "dt:    \t$dt_at_max\n";
+print DATA "Repol: \t$printpol %\n";
+print DATA "Start: \t$maxtime\n";
+print DATA "End:   \t$endtime\n";
+print DATA "Mag:   \t$magnitude\n";
+print DATA "Thresh:\t$threshold\n";
+close(DATA);

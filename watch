@@ -1,0 +1,28 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+unless(@ARGV == 1 || @ARGV == 2){
+    die "Usage: watcher <pid> [tag]\n";
+}
+
+my $pid = $ARGV[0];
+my $tag = "";
+
+if(@ARGV == 2){
+    $tag = "($ARGV[1])";
+}
+
+my $process = "/proc/".$pid;
+my $newpid = fork();
+
+unless($newpid == 0){
+    exit 0;
+}
+
+while ( -e $process){ sleep 30 };
+
+print "\n\n\n####### PROCESS $pid $tag FINISHED #######\n\n\n";
+
+
+
