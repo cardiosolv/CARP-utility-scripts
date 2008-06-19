@@ -1,0 +1,128 @@
+#!/usr/bin/env perl -w
+
+use strict;
+
+sub usage {
+
+  print "$0 name.tetras\n";
+  die join("\n", @_);
+}
+
+usage() if not scalar(@ARGV);
+my $name = shift @ARGV;
+#extract the first part of the file.
+$name =~ s,\..*,,;
+
+my $tetrafile = "$name.tetras";
+
+open(TETRAS, $tetrafile) or die "Can't open file $tetrafile";
+my $line = <TETRAS>;
+
+my %node_set; 
+while ($line = <TETRAS>) {
+  chomp($line);
+  my @nodes = split(/\s+/,$line);
+  pop @nodes;
+  foreach my $node (@nodes) {
+    $node_set{$node} = 1;
+  }
+}
+
+close(TETRAS);
+
+my $npoints;
+{
+  my $text = (`wc -l $name.pts`);
+  die if not $text =~ /(\d+)/;
+  $npoints = $1;
+  $npoints--;
+}
+
+my @bad_nodes;
+for(my $node=1; $node<=$npoints; $node++) {
+  if (not defined($node_set{$node})) {
+    push @bad_nodes, $node;
+  }
+}
+
+
+sub new_node_index($\@) {
+    # modified binary search, pretend each entry marks a range, find lower bound.
+    my ($x, $a) = @_;            # search for x in array a
+    my ($l, $u) = (0, @$a - 1);  # lower, upper end of search interval
+    my $i;                       # index of probe
+    return 0 if $x < $a->[$l];
+    return scalar(@$a) if $x >= $a->[$u];
+    while ($l < $u-1) {
+	$i = int(($l + $u)/2);
+	if ($a->[$i] < $x) {
+	    $l = $i;
+	}
+	elsif ($a->[$i] > $x) {
+	    $u = $i;
+	} 
+    }
+    return $l+1;
+}
+
+if (scalar(@bad_nodes)) {
+  if (scalar(@ARGV)) {
+    my $arg = shift @ARGV;
+    usage("Second argument must be clean or nothing.") if ($arg ne 'clean');
+    #Clean the files.
+    rename "$name.pts", "$name.pts.bak" or die "Can't move $name.pts to $name.pts.bak: $!";
+    open(PTSIN, "$name.pts.bak") or die "Can't open file $name.pts.bak: $!";
+    open(PTSOUT, ">$name.pts") or die "Can't open file $name.pts for writing: $!";
+    my $temp = <PTSIN>;
+    chomp $temp;
+    print PTSOUT $temp-scalar(@bad_nodes) . "\n";
+    {
+      my @rm_nodes = @bad_nodes;
+      push @rm_nodes, -1; # we never remove line -1.
+      my $lineno = 1;
+      my $line;
+      while ($line = <PTSIN>) {
+	if ($lineno == $rm_nodes[0]) {
+	  shift @rm_nodes;
+	} else {
+	  print PTSOUT $line;
+	}
+	$lineno++;
+      }
+    }
+    close(PTSIN);
+    close(PTSOUT);
+
+    rename "$name.tetras", "$name.tetras.bak" or die "Can't move $name.tetras to $name.tetras.bak: $!";
+    open(TETIN, "$name.tetras.bak") or die "Can't open file $name.tetras.bak: $!";
+    open(TETOUT, ">$name.tetras") or die "Can't open file $name.tetras for writing: $!";
+    $temp = <TETIN>;
+    print TETOUT $temp;
+    {
+      my $line;
+      while ($line = <TETIN>) {
+	chomp($line);
+	my @nodes = split(/\s+/,$line);
+	my $region = pop @nodes;
+	foreach my $node (@nodes) {
+	  $node = $node - new_node_index($node, @bad_nodes);
+	  #$node = new_node_index($node, @bad_nodes);
+	}
+	print TETOUT join(" ", @nodes) . " $region\n";
+      }
+    }
+    close(TETIN);
+    close(TETOUT);
+
+    
+  } else {
+    print "Found " . scalar(@bad_nodes) . " bad nodes:\n";
+    print join("\n", @bad_nodes) . "\n";
+    print "Type the following command to clean your files.\n";
+    print "$0 $name clean\n";
+  }
+} else {
+  print "Mesh looks ok.\n"
+}
+
+	
