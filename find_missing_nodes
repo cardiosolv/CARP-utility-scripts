@@ -304,6 +304,18 @@ if (not $rmnodes_file) {
       print "done.\n"
     }
     
+    print "Searching for tris files... ";
+    my @trisfiles = get_files_with_extension($name, "tris");
+    if (not scalar(@trisfiles)) {
+      print "couldn't find any tris files, skipping.\n";
+    } else {
+      print "found " . join(" ", @trisfiles) . ".\n";
+      foreach my $file (@trisfiles) {
+	print "Cleaning $file... ";
+	clean_file(@bad_nodes, $file);
+	print "done.\n";
+      }
+    }
   }
 }
 
