@@ -4,45 +4,18 @@ use strict;
 
 sub usage {
 
-  print "$0 name.tetras\n";
+  print <<__HERE
+Usage:
+  $0 name.tetras
+  $0 name.elem
+    Searches for unreferenced nodes in the current mesh.
+  $0 name.rmnodes
+    Removes the specified nodes from the pts, tetras, set, and tri files.
+
+__HERE
+;
+
   die join("\n", @_);
-}
-
-usage() if not scalar(@ARGV);
-my $name = shift @ARGV;
-#extract the first part of the file.
-$name =~ s,\..*,,;
-
-my $tetrafile = "$name.tetras";
-
-open(TETRAS, $tetrafile) or die "Can't open file $tetrafile";
-my $line = <TETRAS>;
-
-my %node_set; 
-while ($line = <TETRAS>) {
-  chomp($line);
-  my @nodes = split(/\s+/,$line);
-  pop @nodes;
-  foreach my $node (@nodes) {
-    $node_set{$node} = 1;
-  }
-}
-
-close(TETRAS);
-
-my $npoints;
-{
-  my $text = (`wc -l $name.pts`);
-  die if not $text =~ /(\d+)/;
-  $npoints = $1;
-  $npoints--;
-}
-
-my @bad_nodes;
-for(my $node=1; $node<=$npoints; $node++) {
-  if (not defined($node_set{$node})) {
-    push @bad_nodes, $node;
-  }
 }
 
 
@@ -65,11 +38,198 @@ sub new_node_index($\@) {
     return $l+1;
 }
 
-if (scalar(@bad_nodes)) {
-  if (scalar(@ARGV)) {
-    my $arg = shift @ARGV;
-    usage("Second argument must be clean or nothing.") if ($arg ne 'clean');
-    #Clean the files.
+sub clean_file(\@$) {
+##################################################
+# Searches a file filled with numbers, replaces each number with it's new
+# equivalent in the new mesh.
+# P: \@bad_nodes: list of nodes we should remove.
+# P: $file - file to clean
+# P: $file_has_header - true if the file has a header, false otherwise.
+
+  my ($bad_nodes, $file) = @_;
+
+  rename $file, "$file.bak" or die "Can't move $file to $file.bak: $!";
+  open(TETIN, "$file.bak") or die "Can't open file $file.bak: $!";
+  open(TETOUT, ">$file") or die "Can't open file $file for writing: $!";
+  my $line;
+  if ($file =~ /tetras$/
+      or $file =~ /tris$/
+      ) {
+    $line = <TETIN>;
+    print TETOUT $line;
+  }
+
+  while ($line = <TETIN>) {
+    chomp($line);
+    my @nodes = split(/\s+/,$line);
+    my $header = "";
+    my $footer = "\n";
+    if ($file =~ /tetras$/) {
+      $footer = " " . pop(@nodes) . "\n";
+    } elsif ($file =~ /elem$/) {
+      $footer = " " . pop(@nodes) . "\n";
+      $header = shift(@nodes) . " ";
+    }
+    foreach my $node (@nodes) {
+      $node = $node - new_node_index($node, @$bad_nodes);
+      #$node = new_node_index($node, @bad_nodes);
+    }
+    print TETOUT $header . join(" ", @nodes) . $footer;
+  }
+  close(TETIN);
+  close(TETOUT);
+}
+
+sub get_files_with_extension($$) {
+############################################
+# P: $name
+# P: $ext
+# R: files in directory of $name with extension $ext
+
+  my ($name, $ext) = @_;
+
+  # get the directory to search
+  my $dir = $name;
+  if ($dir !~ m,^/,) {
+    $dir = "./$dir"
+  }
+  $dir =~ s,/.*?$,/,;
+  
+  my @extfiles;
+  opendir(DIR, $dir) or die "Can't open directory '$dir' for reading: $!";
+  foreach my $file (readdir DIR) {
+    if ($file =~ m,\.$ext$,) {
+      push @extfiles, $file;
+    }
+  }
+  closedir(DIR);
+
+  return @extfiles;
+}
+
+#####################################################################
+
+usage() if not scalar(@ARGV);
+my $name = shift @ARGV;
+my $rmnodes_file = "";
+if ($name =~ /\.rmnodes$/) {
+  $rmnodes_file = $name;
+}
+my $elem_file = "";
+if ($name =~ /\.elem$/) {
+  $elem_file = $name;
+}
+#extract the first part of the file.
+$name =~ s,\..*?$,,;
+
+if (not $rmnodes_file) {
+  my @bad_nodes;
+  if (not $elem_file) {
+    my $tetrafile = "$name.tetras";
+
+    open(TETRAS, $tetrafile) or die "Can't open file $tetrafile";
+    my $line = <TETRAS>;
+    
+    my %node_set; 
+    while ($line = <TETRAS>) {
+      chomp($line);
+      my @nodes = split(/\s+/,$line);
+      pop @nodes;
+      foreach my $node (@nodes) {
+	$node_set{$node} = 1;
+      }
+    }
+    
+    close(TETRAS);
+    
+    my $npoints;
+    {
+      my $text = (`wc -l $name.pts`);
+      die if not $text =~ /(\d+)/;
+      $npoints = $1;
+      $npoints--;
+    }
+    
+    for(my $node=1; $node<=$npoints; $node++) {
+      if (not defined($node_set{$node})) {
+	push @bad_nodes, $node;
+      }
+    }
+  } else {
+    open(TETRAS, $elem_file) or die "Can't open file $elem_file";
+    my $line = <TETRAS>;
+    
+    my %node_set;
+    while ($line = <TETRAS>) {
+      chomp($line);
+      my @nodes = split(/\s+/,$line);
+      shift @nodes;
+      pop @nodes;
+      foreach my $node (@nodes) {
+	$node_set{$node} = 1;
+      }
+    }
+    
+    close(TETRAS);
+    
+    my $npoints;
+    {
+      my $text = (`wc -l $name.pts`);
+      die if not $text =~ /(\d+)/;
+      $npoints = $1;
+      $npoints--;
+    }
+    
+    for(my $node=0; $node<$npoints; $node++) {
+      if (not defined($node_set{$node})) {
+	push @bad_nodes, $node;
+      }
+    }
+  }
+
+  if (scalar(@bad_nodes)) {
+    open(RMNODES, ">$name.rmnodes") or die "Can't open $name.rmnodes for writing: $!\n";
+    if ($elem_file) {
+      print RMNODES "carp\n";
+    } else {
+      print RMNODES "memfem\n";
+    }
+    print RMNODES join("\n", @bad_nodes) . "\n";
+    close(RMNODES);
+    print "Found " . scalar(@bad_nodes) . " bad nodes:\n";
+    print "Type the following command to clean your files.\n";
+    print "$0 $name.rmnodes\n";
+  } else {
+    print "Mesh looks ok.\n"
+  }
+} else  {
+  # turn on flushing for stdout.
+  my $ofh = select STDOUT;
+  $| = 1;
+  select $ofh;
+
+  #read in the list of bad nodes
+  open(RMNODES, $rmnodes_file) or die "Can't open $rmnodes_file for reading: $!\n";
+  my @bad_nodes;
+  my $type;
+  {
+    $type = <RMNODES>;
+    chomp $type;
+    my $line;
+    while ($line = <RMNODES>) {
+      chomp $line;
+      push @bad_nodes, $line;
+    }
+  }
+  close(RMNODES);
+  @bad_nodes = sort { $a <=> $b } @bad_nodes;
+
+
+  #Clean the files.
+  if (not -e "$name.pts") {
+    print "Can't find $name.pts, skipping.\n"
+  } else {
+    print "Cleaning $name.pts... ";
     rename "$name.pts", "$name.pts.bak" or die "Can't move $name.pts to $name.pts.bak: $!";
     open(PTSIN, "$name.pts.bak") or die "Can't open file $name.pts.bak: $!";
     open(PTSOUT, ">$name.pts") or die "Can't open file $name.pts for writing: $!";
@@ -79,7 +239,12 @@ if (scalar(@bad_nodes)) {
     {
       my @rm_nodes = @bad_nodes;
       push @rm_nodes, -1; # we never remove line -1.
-      my $lineno = 1;
+      my $lineno;
+      if ($type eq "memfem") {
+	$lineno = 1;
+      } else {
+	$lineno = 0;
+      }
       my $line;
       while ($line = <PTSIN>) {
 	if ($lineno == $rm_nodes[0]) {
@@ -92,37 +257,53 @@ if (scalar(@bad_nodes)) {
     }
     close(PTSIN);
     close(PTSOUT);
+    print "done.\n"
+  }
 
-    rename "$name.tetras", "$name.tetras.bak" or die "Can't move $name.tetras to $name.tetras.bak: $!";
-    open(TETIN, "$name.tetras.bak") or die "Can't open file $name.tetras.bak: $!";
-    open(TETOUT, ">$name.tetras") or die "Can't open file $name.tetras for writing: $!";
-    $temp = <TETIN>;
-    print TETOUT $temp;
-    {
-      my $line;
-      while ($line = <TETIN>) {
-	chomp($line);
-	my @nodes = split(/\s+/,$line);
-	my $region = pop @nodes;
-	foreach my $node (@nodes) {
-	  $node = $node - new_node_index($node, @bad_nodes);
-	  #$node = new_node_index($node, @bad_nodes);
-	}
-	print TETOUT join(" ", @nodes) . " $region\n";
+  if ($type eq "memfem") {
+    if (not -e "$name.tetras") {
+      print "Can't find $name.tetras, skipping.\n";
+    } else {
+      print "Cleaning $name.tetras... ";
+      clean_file(@bad_nodes, "$name.tetras");
+      print "done.\n"
+    }
+
+    print "Searching for tri files... ";
+    my @trifiles = get_files_with_extension($name, "tri");
+    if (not scalar(@trifiles)) {
+      print "couldn't find any tri files, skipping.\n";
+    } else {
+      print "found " . join(" ", @trifiles) . ".\n";
+      foreach my $file (@trifiles) {
+	print "Cleaning $file... ";
+	clean_file(@bad_nodes, $file);
+	print "done.\n";
       }
     }
-    close(TETIN);
-    close(TETOUT);
 
-    
+    print "Searching for set files... ";
+    my @setfiles = get_files_with_extension($name, "set");
+    if (not scalar(@setfiles)) {
+      print "couldn't find any set files, skipping.\n";
+    } else {
+      print "found " . join(" ", @setfiles) . ".\n";
+      foreach my $file (@setfiles) {
+	print "Cleaning $file... ";
+	clean_file(@bad_nodes, $file);
+	print "done.\n";
+      }
+    }
   } else {
-    print "Found " . scalar(@bad_nodes) . " bad nodes:\n";
-    print join("\n", @bad_nodes) . "\n";
-    print "Type the following command to clean your files.\n";
-    print "$0 $name clean\n";
+    # carp files
+    if (not -e "$name.elem") {
+      print "Can't find $name.elem, skipping.\n";
+    } else {
+      print "Cleaning $name.elem... ";
+      clean_file(@bad_nodes, "$name.elem");
+      print "done.\n"
+    }
+    
   }
-} else {
-  print "Mesh looks ok.\n"
 }
 
-	
