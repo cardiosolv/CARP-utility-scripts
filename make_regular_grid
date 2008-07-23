@@ -1,0 +1,271 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+sub usage {
+#################################3
+# P: quit message (optional)
+#
+
+  my (@messages) = @_;
+  print <<__HERE
+
+<program> par_file
+
+where par file where each line is blank, or
+  
+name = value 
+
+End of line comments start with a #
+
+Here are the options that the program will look for:
+
+name = example # name of the grid
+tissue = 3 4 5 # dimensions along the x,y,and Z axises
+h = 0.05 # step size along each axis (same)
+bath = 1 1 1 # extend the tissue by bath_dim along each axis
+                # |<-bath_x->|<---dim_x--->|<-bath_x->|
+                # if omitted, 0 0 0 is assumed
+
+
+Given a parameter file like the above, the code will generate a grid
+(surrounded by an optional bath), complete with .pts, .tetras, and .tri 
+files.  
+
+Enjoy!
+
+__HERE
+    ;
+
+  die join("\n", @messages) if (@messages); 
+
+}
+
+
+sub swap(\$\$) {
+###########################################
+# swaps two scalars.
+
+  my ($a, $b) = @_;
+  my $temp;
+
+  $temp = $$a;
+  $$a = $$b;
+  $$b = $temp;
+}
+
+usage("Need to specify a parameter file on the command line") if not @ARGV;
+
+my $par_file = shift @ARGV;
+
+my %par = read_par_file($par_file);
+
+my $name = assert_there('name');
+my @tissue = make_list(assert_there('tissue'));
+my $h = assert_there('h');
+my @bath = (0,0,0);
+if (defined($par{bath})) {
+    @bath = make_list($par{bath});
+}
+
+
+my @count;
+my @start;
+my @bath_count;
+  
+for (my $i=0; $i<3; $i++) {
+  my $length = 2*$bath[$i]+$tissue[$i];
+  $start[$i] = -$length/2;
+  $count[$i] = int($length/$h);
+  $bath_count[$i] = int($bath[$i]/$h);
+}
+
+{
+  #write the points file
+  open(PTS, ">$name.pts") or die "Could not open $name.pts: $!\n";
+  print PTS ($count[0]+1)*($count[1]+1)*($count[2]+1) . "\n";
+
+  for (my $k=0; $k<=$count[2]; $k++) {
+    for (my $j=0; $j<=$count[1]; $j++) {
+      for (my $i=0; $i<=$count[0]; $i++) {
+	print PTS join(" ", ($i*$h+$start[0], $j*$h+$start[1], $k*$h+$start[2])) . "\n";
+      }
+    }
+  }
+  close(PTS);
+
+  #make all the terahedrals
+  open(TET, ">$name.tetras") or die "Could not open $name.tetras: $!\n";
+  print TET $count[0]*$count[1]*$count[2]*6 . "\n";
+  for (my $z=0; $z<$count[2]; $z++) {
+    for (my $y=0; $y<$count[1]; $y++) {
+      for (my $x=0; $x<$count[0]; $x++) {
+	for (my $i=0; $i < 3; $i++) {
+	  for (my $j=0; $j < 3; $j++) {
+	    next if $j==$i;
+	    my @third_point = ($x, $y, $z);
+	    my @fourth_point = @third_point;
+	    for (my $k=0; $k<3; $k++) {
+	      $third_point[$k]++ if $k!=$i;
+	      $fourth_point[$k]++ if $k==$j;
+	    }
+		
+	    print TET join(" ",
+			   (
+			    get_point($x, $y, $z),
+			    get_point($x+1, $y+1, $z+1),
+			    get_point(@third_point),
+			    get_point(@fourth_point),
+			    region_number($x, $y, $z)
+			    )
+			   ) . "\n"
+	  }
+	}
+      }
+    }
+  }
+  close(TET);
+
+  #make all tri files
+  open(TRI, ">$name.tri") or die "Could not open $name.tri: $!\n";
+  for (my $perp=0; $perp<3; $perp++) {
+    my $u=0;
+    $u++ if $perp==$u;
+    my $v=$u+1;
+    $v++ if $perp==$v;
+
+    my $should_swap = 0;
+    foreach my $side ($bath_count[$perp], $count[$perp]-$bath_count[$perp]) {
+      for (my $x=$bath_count[$u]; $x<$count[$u]-$bath_count[$u]; $x++) {
+	for (my $y=$bath_count[$v]; $y<$count[$v]-$bath_count[$v]; $y++) {
+	  my @base;
+	  $base[$perp] = $side;
+	  $base[$u] = $x;
+	  $base[$v] = $y;
+	  
+	  my @opposite = @base;
+	  $opposite[$u]++;
+	  $opposite[$v]++;
+
+	  foreach my $w ($u, $v) {
+	    my @corner = @base;
+	    $corner[$w]++;
+	    
+	    my ($second, $third) = (\@opposite, \@corner);
+	    if ($should_swap) {
+	      swap($second, $third);
+	    }
+
+	    print TRI join(" ",
+			   (
+			    get_point(@base),
+			    get_point(@$second),
+			    get_point(@$third)
+			    )
+			   ) . "\n";
+
+	    $should_swap = not $should_swap;
+	  }
+	}
+      }
+      $should_swap = not $should_swap;
+    }
+  }
+  close(TRI);
+
+  open(CG_IN, ">$name.cg_in") or die "Could not open $name.cg_in: $!\n";
+  print CG_IN "1\n0\n$name\n";
+  close(CG_IN);
+
+}
+
+sub region_number {
+#########################################
+#
+#
+
+  my (@coord) = @_;
+
+  for (my $i=0; $i<3; $i++) {
+    return 2 if $coord[$i] <  $bath_count[$i];
+    return 2 if $coord[$i] >= $count[$i]-$bath_count[$i];
+  }
+
+  return 1;
+
+}
+
+sub get_point {
+##########################################
+# P: coord
+# R: index in pts file
+  
+  my (@coord) = @_;
+  
+  return 1+$coord[0]+($count[0]+1)*($coord[1]+($count[1]+1)*$coord[2]);
+}
+
+sub assert_there {
+##########################################
+# returns true if a value is defined
+  my ($name) = @_;
+
+  usage("Error: name '$name' does not exist in the par file!") if not $par{$name};
+  return $par{$name};
+}
+
+sub make_list {
+#######################################
+# P: text
+# R: list where each item is separated by a space
+
+  my ($text) = @_;
+
+  return split(/\s+/, strip($text));
+}
+
+sub read_par_file {
+##########################################3
+# P: $par_file
+#  file to open
+# R: hash containing par file
+
+  my ($par_file) = @_;
+
+  open(FILE, $par_file) or usage("Canot open par file $par_file: $!\n");
+
+  my %ret_hash;
+  foreach my $line (<FILE>) {
+    $line =~ s,#.*,,;
+    $line = strip($line);
+    
+    next if not $line;
+    usage("Invalid parameter file line '$line'") if not ($line =~ /=/);
+    
+    my ($name, $value) = split(/\s*=\s*/, $line);
+    usage("Invlid name/value pair '$name' => '$value'") if not ($name and $value);
+    
+    $ret_hash{$name} = $value;
+    
+  }
+  close(FILE);
+  
+  return %ret_hash;
+
+}
+
+
+
+sub strip {
+###########################################################
+# P: $text
+# R: $text with leading and trailing whitespace removed
+
+  my ($text) = @_;
+
+  $text =~ s,^\s*,,;
+  $text =~ s,\s*$,,;
+
+  return $text;
+}
+
