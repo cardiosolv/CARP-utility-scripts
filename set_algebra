@@ -1,0 +1,133 @@
+#!/usr/bin/python -i
+
+from sets import *
+import os
+import sys
+import re
+
+def read(filename):
+    '''
+    P: file to read in
+    R: the resulting set from that file object
+    '''
+    file = open(filename, "r")
+
+    ret = Set()
+    for line in file.readlines():
+        ret.add(int(line.strip()))
+	
+    return ret
+
+def read_dir(directory):
+    global _model_name
+    _set_file = re.compile(_model_name + r'\.(\w+)\.set')
+    for _f in os.listdir(directory):
+	_m = _set_file.match(_f)
+	if (_m):
+	    _set_name = _m.group(1)
+	    _s = read(_f)
+	    exec 'global %s; %s = _s' % (_set_name,_set_name)
+
+def is_a_set(name):
+    return globals()[name].__class__ == Set
+
+def write(name):
+    if not is_a_set(name):
+	print "Error: Couldn't find set name of '%s'" % name
+	return
+    f = open("%s/%s.%s.set" % ('.', _model_name, name),
+             "w"
+             )
+
+    for n in globals()[name]:
+        print >>f, n
+
+    f.close()
+
+def write_all():
+    for sym in globals().keys():
+	if is_a_set(sym):
+	    write(sym)
+
+def ls():
+    for sym in globals().keys():
+	if is_a_set(sym):
+	    print sym
+
+
+if (__name__ == "__main__"):
+    if len(sys.argv) < 2:
+	print """
+Usage:
+./set_arith <model_name>
+
+This file reads in all the sets in the current directory, then dumps you
+to a python prompt.  You can use any python commands on the prompt, but here
+are the ones that you'll most be interested in.
+
+Set Operations
+ * a|b = set union
+ * a-b = set difference
+ * a&b = set intersection
+
+Other operations
+ * read('filename') - Reads in a set from the given filename. 
+ * read_dir('dirname') - Reads in all the set files from a directory name
+ * write('name') - Writes out the set with name 'name'  
+
+ * ls() - show all the active sets
+ * del setA - delete setA from the list of active sets
+ * write_all() - Writes out all the active sets
+
+ * len(setA) - get the number of points in setA
+
+Example of use:
+
+{{{
+[rblake]> ls
+point50.a.set  point50.b.set set_arith
+[rblake]> ./set_arith point50 
+>>> ls()
+a
+b
+>>> a
+Set([1, 2, 3])
+>>> b
+Set([2, 3, 4])
+>>> c = a | b
+>>> c
+Set([1, 2, 3, 4])
+>>> d = a & b
+>>> d
+Set([2, 3])
+>>> e = a - b
+>>> e
+Set([1])
+>>> ls()
+b
+a
+c
+e
+d
+>>> del c    
+>>> ls()
+b
+a
+e
+d
+>>> del a
+>>> del b
+>>> ls ()
+e
+d
+>>> write_all()
+>>> ^D
+[rblake]> ls
+point50.a.set  point50.b.set  point50.d.set  point50.e.set  set_arith
+[rblake]>
+}}}
+"""
+	sys.exit(1)
+    
+    _model_name = sys.argv[1]
+    read_dir('.')
