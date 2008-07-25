@@ -1,0 +1,172 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+
+sub die_help {
+############################################################
+  print <<__EOF
+
+Usage:
+
+$0 model_name
+
+Converts the carp files in the current directory into files that are compatible with memfem.
+
+__EOF
+;
+  die join("\n", @_);
+}
+
+
+my $model = shift(@ARGV) or die_help("Need to specify the model name as the first argument");
+#strip the trailing .* from the model name.
+$model =~ s,\..*?$,,;
+
+# Collect information on which regions implement bath and tissue
+my %carp_tissue;
+my %carp_bath;
+{
+  open(ELEM, "$model.elem") or die_help("Can't open $model.elem for reading");
+  open(LON, "$model.lon") or die_help("Can't open $model.lon for reading");
+  #strip header off of ELEM
+  my $elem_line = <ELEM>;
+  my $fiber_line;
+  while(defined($elem_line = <ELEM>) && defined($fiber_line = <LON>)) {
+    chomp($elem_line); chomp($fiber_line);
+    my @elem = split(/\s+/, $elem_line);
+    my @fiber = split(/\s+/, $fiber_line);
+    my $tag = $elem[5];
+    if (is_bath(@fiber)) {
+      $carp_bath{$tag} = 1;
+    } else {
+      $carp_tissue{$tag} = 1;
+    }
+  }
+  close(ELEM);
+  close(LON);
+}
+
+my @all_carp_tags;
+# all_carp_tags = union(carp_tissue, carp_bath)
+{
+  my %temp;
+  foreach $a (keys %carp_tissue) {
+    $temp{$a} = 1;
+  }
+  foreach $a (keys %carp_bath) {
+    $temp{$a} = 1;
+  }
+  @all_carp_tags = sort keys %temp;
+}
+my $memfem_max_tag = scalar @all_carp_tags;
+my %memfem_tissue;
+my %memfem_bath;
+my %is_memfem_tissue;
+{
+  my $memfem_current_tag = 1;
+  ## Create new element regions as needed.
+  foreach my $i (@all_carp_tags) {
+    if (defined $carp_bath{$i} and not defined $carp_tissue{$i}) {
+      $memfem_bath{$i} = $memfem_current_tag;
+      print "Region $i in CARP (bath) => Region $memfem_current_tag in memfem\n";
+    } elsif (not defined $carp_bath{$i} and defined $carp_tissue{$i}) {
+      $memfem_tissue{$i} = $memfem_current_tag;
+      $is_memfem_tissue{$memfem_current_tag} = 1;
+      print "Region $i in CARP (tissue) => Region $memfem_current_tag in memfem\n";
+    } elsif (defined $carp_bath{$i} and defined $carp_tissue{$i}) {
+      $memfem_tissue{$i} = $memfem_current_tag;
+      $is_memfem_tissue{$memfem_current_tag} = 1;
+      print "Region $i in CARP (tissue) => Region $memfem_current_tag in memfem\n";
+      $memfem_max_tag++;
+      $memfem_bath{$i} = $memfem_max_tag;
+      print "Region $i in CARP (bath) => Region $memfem_max_tag in memfem\n";
+    }
+    $memfem_current_tag++;
+  }
+}
+
+## Create the .tetras and .fibers files.
+{
+  open(ELEM, "$model.elem") or die_help("Can't open $model.elem for reading");
+  open(LON, "$model.lon") or die_help("Can't open $model.lon for reading");
+  open(TETRAS, ">${model}_mfm.tetras") or die_help("Can't open ${model}_mfm.tetras for writing");
+  open(FIBERS, ">${model}_mfm.fibers") or die_help("Can't open ${model}_mfm.fibers for writing");
+  #strip header off of ELEM
+  my $elem_line = <ELEM>;
+  my $fiber_line;
+  while(defined($elem_line = <ELEM>) && defined($fiber_line = <LON>)) {
+    chomp($elem_line); chomp($fiber_line);
+    my @elem = split(/\s+/, $elem_line);
+    my @fiber = split(/\s+/, $fiber_line);
+    my $tag = $elem[5];
+    if (is_bath(@fiber)) {
+      $elem[5] = $memfem_bath{$tag};
+    } else {
+      #fibers only appear in a .fiber file if they are non-zero.
+      $elem[5] = $memfem_tissue{$tag};
+      print FIBERS join(" ", @fiber) . "\n";
+    }
+    #CARP files index from 0, memfem index from 1
+    for (my $i=1; $i<=4; $i++) {
+      $elem[$i]++;
+    }
+    print TETRAS join(" ", @elem[1..5]) . "\n";
+
+  }
+  close(ELEM);
+  close(LON);
+  close(TETRAS);
+  close(FIBERS);
+}
+
+{
+  open(CARP_PTS, "$model.pts") or die_help("Can't open $model.pts for reading");
+  open(MEM_PTS, ">${model}_mfm.pts") or die_help("Can't open ${model}_mfm.pts for writing");
+  my $pts_line = <CARP_PTS>;
+  while ($pts_line = <CARP_PTS>) {
+    chomp($pts_line);
+    my @point = split(/\s+/, $pts_line);
+    foreach my $coord (@point) {
+      $coord = $coord/1000.0;
+    }
+    print MEM_PTS join(" ", @point) . "\n";
+  }
+  close(CARP_PTS);
+  close(MEM_PTS);
+}
+
+# Finally, write a mem.cond file
+{
+  open(COND, ">${model}_mfm.mem.cond") or die_help("Can't open ${model}_mfm.mem.cond for writing");
+  for(my $i=1; $i<=$memfem_max_tag; $i++) {
+    if (defined($is_memfem_tissue{$i})) {
+      print COND ".000625 0 0 .000236 0 .000236 .000174 0 0 .000019 0 .000019\n";
+    } else {
+      print COND ".0008 0 0 .0008 0 .0008 0 0 0 0 0 0\n";
+    }
+  }
+  close(COND);
+}
+
+my @special_regions = sort keys %is_memfem_tissue;
+
+if (scalar @special_regions) {
+  print "Use the following flags when running memfem: -n ${model}_mfm -cond_i.transverse 1.9e-5 -s " .join(",",@special_regions) . "\n";
+}
+
+sub is_bath {
+#######################################333
+# P: @fiber
+# 3-d vector describing fiber direction
+# R: true if it's a zero vector.
+
+  my @fiber = @_;
+
+  my $zero_fiber = 1;
+  for (my $i=0; $i<3; $i++) {
+    $zero_fiber &= ($fiber[$i] == 0);
+  }
+
+  return $zero_fiber;
+}
