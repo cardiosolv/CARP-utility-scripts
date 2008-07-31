@@ -21,7 +21,7 @@ Without scipy, I can't convert .spec files to .lon files.
    _have_scipy = False
 
 
-def eig_direction(mat):
+def eig_direction(mat, sheet_normals):
    '''
    P: a python matrix, 3x3, that comes from a spec file
    R: the direction of the fiber described by that matrix.
@@ -33,9 +33,15 @@ def eig_direction(mat):
    index_long = max_index[0]
    index_transverse = max_index[1]
    if abs(L[index_long]-L[index_transverse]) < 1e-6:
-       return [0,0,0];
+      if sheet_normals:
+         return [0,0,0,0,0,0];
+      else:
+         return [0,0,0];
    else:
-       return list(V[:,index_long])
+      if sheet_normals:
+         return list(V[:,index_long]) + list(V[:,index_transverse])
+      else:
+         return list(V[:,index_long])
 
 # A simple class to help me parse options into a dictionary.
 # Sometimes, dictionaries are easier to manipulate than objects.
@@ -55,6 +61,12 @@ if __name__=="__main__":
    parser.add_option("-s", "--special_regions",
                      dest="special_regions",
                      help="Comma separated list of special regions.",
+                     )
+   parser.add_option("-n", "--sheet_normals",
+                     dest="sheet_normals",
+                     help="Look for sheet normals as well in the .spec and .mem.cond files.",
+                     default=False,
+                     action="store_true",
                      )
    (options, args) = parser.parse_args()
    if len(args) != 1:
@@ -108,9 +120,11 @@ if __name__=="__main__":
    ifile = file(mname+".tetras", "r");
    ntets = int(ifile.readline());
    ofile = file("carp."+mname+".elem", "w");
-   ofile.write(str(ntets)+"\n");
+   print >>ofile, ntets;
 
    olonfile = file("carp."+mname+".lon", "w");
+   if options["sheet_normals"]:
+      print >>olonfile, "2"
 
    if(len(sregions)>0):
       if os.path.isfile(mname+".spec"):
@@ -145,7 +159,7 @@ if __name__=="__main__":
          cond = array (((econd[start+0],econd[start+1]), (econd[start+0],econd[start+2])));
    
       #get fiber direction from econd
-      direction = eig_direction(cond);
+      direction = eig_direction(cond, options["sheet_normals"]);
       #print it out to file
       print >>olonfile, " ".join(["%g" % v for v in direction])
 
