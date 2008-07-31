@@ -80,7 +80,10 @@ if __name__=="__main__":
    if options.has_key("special_regions"):
       for r in options["special_regions"].split(","):
          sregions.append(int(r));
-
+   if options.has_key("sheet_normals"):
+	sheet_normals = options["sheet_normals"]
+   else:
+        sheet_normals = 0
 
    if os.path.isfile(mname+".pts"):
       print "Processing the pts file"
@@ -123,7 +126,7 @@ if __name__=="__main__":
    print >>ofile, ntets;
 
    olonfile = file("carp."+mname+".lon", "w");
-   if options["sheet_normals"]:
+   if sheet_normals:
       print >>olonfile, "2"
 
    if(len(sregions)>0):
@@ -159,7 +162,7 @@ if __name__=="__main__":
          cond = array (((econd[start+0],econd[start+1]), (econd[start+0],econd[start+2])));
    
       #get fiber direction from econd
-      direction = eig_direction(cond, options["sheet_normals"]);
+      direction = eig_direction(cond, sheet_normals);
       #print it out to file
       print >>olonfile, " ".join(["%g" % v for v in direction])
 
