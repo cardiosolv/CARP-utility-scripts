@@ -150,7 +150,7 @@ if __name__=="__main__":
             print >>olonfile, " ".join(fiber[0:3])
             continue
          elif special_type=="spec":
-            econd = sfile.readline().split();
+            econd = [float(v) for v in sfile.readline().split()];
       else:
          econd = base_conds[region-1];
 
