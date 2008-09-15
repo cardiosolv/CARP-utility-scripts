@@ -131,13 +131,19 @@ for (my $i=0; $i<3; $i++) {
       $dir /= $fiber_len;
     }
     open(LON, ">$name.lon") or die "Could not open $name.lon: $!\n";
-    print LON "$num_fibers\n";
+    #print LON "$num_fibers\n";
+    
     print LON (join(" ", @fiber)."\n") x $num_fibers;
     close(LON);
   }
 
   #make all tri files
-  open(TRI, ">$name.tri") or die "Could not open $name.tri: $!\n";
+  open(TRI, ">$name.tris") or die "Could not open $name.tris: $!\n";
+  my $num_triangles = $count[0]*$count[1];
+  $num_triangles += $count[0]*$count[2];
+  $num_triangles += $count[1]*$count[2];
+  $num_triangles *= 2*2;
+  print TRI "$num_triangles\n";
   for (my $perp=0; $perp<3; $perp++) {
     my $u=0;
     $u++ if $perp==$u;
