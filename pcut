@@ -1,0 +1,42 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+my @cols;
+if (scalar(@ARGV) >= 1 && $ARGV[0] =~ /^-f((?:\d+,)*\d+)$/) {
+  @cols = split(/,/, $1);
+  shift @ARGV;
+} elsif (scalar(@ARGV) >= 2 && $ARGV[0] =~ /^-f$/ && $ARGV[1] =~ /^((?:\d+,)*\d+)$/) {
+  @cols = split(/,/, $1);
+  shift @ARGV;
+  shift @ARGV;
+} else {
+  print "Usage: $0 -f <num>\n";
+  exit(1);
+}
+
+my $max_col = -1;
+foreach my $col (@cols) {
+  $max_col = $col if $max_col < $col;
+  $col--;
+}
+
+my $error = 0;
+while (<>) {
+  my $line = $_;
+
+  $line =~ s/^\s*//;
+  $line =~ s/\s*$//;
+  
+  my @values = split(/\s+/, $line);
+  if (scalar(@values) < $max_col) {
+    $error = 1;
+  } else {
+    print join("\t",@values[@cols]) . "\n";
+  }
+}
+
+if ($error) {
+  print STDERR "Error, some lines omitted because they didn't have column $max_col\n";
+}
+ 
