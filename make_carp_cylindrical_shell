@@ -1,0 +1,282 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+sub usage {
+#################################3
+# P: quit message (optional)
+#
+
+  my (@messages) = @_;
+  print <<__HERE
+This program creates thin cylidrical shells.  To use it, run
+
+$0 meshname.def
+
+where par file where each line is blank, or
+  
+name = value 
+
+End of line comments start with a #
+
+Here are the options that the program will look for:
+
+r_outer = 320 # radius of the outermost surface. 
+thickness = 10 # thickness of the shell
+z = 2000 # height of the cylinder
+h = 50 # discretization
+
+
+Enjoy!
+
+__HERE
+    ;
+
+  die join("\n", @messages) if (@messages); 
+
+}
+
+
+sub swap(\$\$) {
+###########################################
+# swaps two scalars.
+
+  my ($a, $b) = @_;
+  my $temp;
+
+  $temp = $$a;
+  $$a = $$b;
+  $$b = $temp;
+}
+
+my $error_msg = "Need to specify parameter file meshname.def on the command line";
+usage($error_msg) if not @ARGV;
+
+my $par_file = shift @ARGV;
+usage($error_msg) if $par_file !~ m,^(.*)\.def$,;
+my $name = $1; 
+
+my %par = read_par_file($par_file);
+
+my $r_outer = assert_there('r_outer');
+my $thickness = assert_there('thickness');
+my $height = assert_there('z');
+my $h = assert_there('h');
+
+my $pi = 3.14159;
+my $r_count = int(2*$pi*$r_outer/$h);
+my $angle_disc = 2*$pi/$r_count;
+my $z_count = int($height/$h);
+my $z_disc = $height/$z_count;
+my @count = (1, $r_count, $z_count);
+ 
+{
+  #write the points file
+  open(PTS, ">$name.pts") or die "Could not open $name.pts: $!\n";
+  print PTS ($count[0]+1)*($count[1])*($count[2]+1) . "\n";
+
+  for (my $k=0; $k <= $count[2]; $k++) {
+    for (my $j=0; $j < $count[1]; $j++) {
+      for (my $i=0; $i <= $count[0]; $i++) {
+	print PTS get_coord($i,$j,$k) ." \n";
+      }
+    }
+  }
+      
+  close(PTS);
+}
+{
+  #make all the hexahedral elements.
+  open(ELEM, ">$name.elem") or die "Could not open $name.elem: $!\n";
+  print ELEM $count[0]*$count[1]*$count[2] . "\n";
+  for (my $z=0; $z<$count[2]; $z++) {
+    for (my $y=0; $y<$count[1]; $y++) {
+      for (my $x=0; $x<$count[0]; $x++) {
+	print ELEM join(" ",
+			(
+			 "Hx",
+			 get_point($x  , $y  , $z  ),
+			 get_point($x+1, $y  , $z  ),
+			 get_point($x+1, $y+1, $z  ),
+			 get_point($x  , $y+1, $z  ),
+			 get_point($x  , $y  , $z+1),
+			 get_point($x  , $y+1, $z+1),
+			 get_point($x+1, $y+1, $z+1),
+			 get_point($x+1, $y  , $z+1),
+			 region_number($x, $y, $z)
+			)
+	    ) ."\n";
+      }
+    }
+  }
+  close(ELEM);
+}
+{
+  open(LON, ">$name.lon") or die "Could not open $name.lon: $!\n";
+  #print LON "$num_fibers\n";
+  
+  for (my $z=0; $z<$count[2]; $z++) {
+    for (my $y=0; $y<$count[1]; $y++) {
+      for (my $x=0; $x<$count[0]; $x++) {
+	print LON get_fiber($x, $y, $z) . "\n";
+      }
+    }
+  }
+  close(LON);
+}
+{
+  #make all tri files
+  open(TRI, ">$name.tris") or die "Could not open $name.tris: $!\n";
+  my $num_triangles = $count[0]*$count[1];
+  $num_triangles += $count[0]*$count[2];
+  $num_triangles += $count[1]*$count[2];
+  $num_triangles *= 2*2;
+  print TRI "$num_triangles\n";
+  for (my $perp=0; $perp<3; $perp++) {
+    my $u=0;
+    $u++ if $perp==$u;
+    my $v=$u+1;
+    $v++ if $perp==$v;
+
+    my $should_swap = 0;
+    foreach my $side (0, $count[$perp]-0) {
+      for (my $x=0; $x<$count[$u]-0; $x++) {
+	for (my $y=0; $y<$count[$v]-0; $y++) {
+	  my @base;
+	  $base[$perp] = $side;
+	  $base[$u] = $x;
+	  $base[$v] = $y;
+	  
+	  my @opposite = @base;
+	  $opposite[$u]++;
+	  $opposite[$v]++;
+
+	  foreach my $w ($u, $v) {
+	    my @corner = @base;
+	    $corner[$w]++;
+	    
+	    my ($second, $third) = (\@opposite, \@corner);
+	    if ($should_swap) {
+	      swap($second, $third);
+	    }
+
+	    print TRI join(" ",
+			   (
+			    get_point(@base),
+			    get_point(@$second),
+			    get_point(@$third)
+			    )
+			   ) . "\n";
+
+	    $should_swap = not $should_swap;
+	  }
+	}
+      }
+      $should_swap = not $should_swap;
+    }
+  }
+  close(TRI);
+}
+
+sub region_number {
+#########################################
+#
+#
+  my (@coord) = @_;
+
+  return 0;
+
+}
+
+sub get_point {
+##########################################
+# P: coord
+# R: index in pts file
+  
+  my (@coord) = @_;
+  $coord[1] = 0 if $coord[1] == $count[1];
+
+  return $coord[0]+($count[0]+1)*($coord[1]+$count[1]*$coord[2]);
+}
+
+sub get_coord {
+##########################################
+# P: coord
+# R: index in pts file
+  my ($depth, $angle, $height) = @_;
+  
+  my $radius = $r_outer-$thickness + $depth*$thickness;
+  return join(" ", ($radius*cos($angle_disc*$angle), $radius*sin($angle_disc*$angle), $z_disc*$height));
+}
+
+sub get_fiber {
+##########################################
+# P: coord
+# R: index in pts file
+  return "0 0 1";
+}
+
+sub assert_there {
+##########################################
+# returns true if a value is defined
+  my ($name) = @_;
+
+  usage("Error: name '$name' does not exist in the par file!") if not $par{$name};
+  return $par{$name};
+}
+
+sub make_list {
+#######################################
+# P: text
+# R: list where each item is separated by a space
+
+  my ($text) = @_;
+
+  return split(/\s+/, strip($text));
+}
+
+sub read_par_file {
+##########################################3
+# P: $par_file
+#  file to open
+# R: hash containing par file
+
+  my ($par_file) = @_;
+
+  open(FILE, $par_file) or usage("Canot open par file $par_file: $!\n");
+
+  my %ret_hash;
+  foreach my $line (<FILE>) {
+    $line =~ s,#.*,,;
+    $line = strip($line);
+    
+    next if not $line;
+    usage("Invalid parameter file line '$line'") if not ($line =~ /=/);
+    
+    my ($name, $value) = split(/\s*=\s*/, $line);
+    usage("Invlid name/value pair '$name' => '$value'") if not ($name and $value);
+    
+    $ret_hash{$name} = $value;
+    
+  }
+  close(FILE);
+  
+  return %ret_hash;
+
+}
+
+
+
+sub strip {
+###########################################################
+# P: $text
+# R: $text with leading and trailing whitespace removed
+
+  my ($text) = @_;
+
+  $text =~ s,^\s*,,;
+  $text =~ s,\s*$,,;
+
+  return $text;
+}
+
