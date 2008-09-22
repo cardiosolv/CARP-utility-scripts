@@ -31,7 +31,7 @@ foreach $filename (@ARGV) {
 //// HEADER GUARD ///////////////////////////
 _EOF
 ;
-	print OUTFILE join("\n", @infile) . "\n";
+	print OUTFILE @infile;
 	print OUTFILE <<_EOF
 //// HEADER GUARD ///////////////////////////
 #endif
