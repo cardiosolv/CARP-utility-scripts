@@ -1,0 +1,69 @@
+#!/usr/bin/perl -w
+
+sub usage {
+
+  print <<__HERE
+Takes a CARP mesh and generates a .vpts file and a .vec file that meshalyer can visualize.
+
+Usage: $0 meshname
+
+__HERE
+;
+
+  die(@_) if @_;
+}
+
+use strict;
+
+my $points = [];
+
+usage("Need to specify the meshname") if not @ARGV;
+
+my $mesh = shift(@ARGV);
+
+
+open(PTS, "$mesh.pts") or die("Can't open $mesh.pts for reading: $!\n");
+my $throw_away = <PTS>;
+while (my $line = <PTS>) {
+  chomp $line;
+  my @tmp = split(/\s+/, $line);
+  push @$points, \@tmp;
+}
+close(PTS);
+
+open(LON, "$mesh.lon") or die("Can't open $mesh.lon for reading: $!\n");
+my $vec_count = 0;
+while (my $fiber = <LON>) {
+  next if $fiber eq "0 0 0\n";
+  $vec_count++;
+}
+close(LON);
+
+
+open(ELEM, "$mesh.elem") or die("Can't open $mesh.elem for reading: $!\n");
+open(LON, "$mesh.lon") or die("Can't open $mesh.lon for reading: $!\n");
+open(VPTS, ">$mesh.vpts") or die("Can't open $mesh.vpts for writing: $!\n");
+open(VEC, ">$mesh.vec") or die("Can't open $mesh.vec for writing: $!\n");
+$throw_away = <ELEM>;
+print VPTS "$vec_count\n";
+while (my $fiber = <LON>) {
+  next if $fiber eq "0 0 0\n";
+  print VEC $fiber;
+  my $elem_line = <ELEM>;
+  chomp $elem_line;
+  my @point_idx = split(/\s+/, $elem_line);
+  shift @point_idx;
+  pop @point_idx;
+  my @acc = (0,0,0);
+  for (my $i=0; $i<3; $i++) {
+    foreach my $idx (@point_idx) {
+      $acc[$i] += $points->[$idx][$i];
+    }
+    $acc[$i] /= scalar(@point_idx);
+  }
+  print VPTS join(" ", @acc) . "\n";
+}
+close(VPTS);
+close(VEC);
+close(LON);
+close(ELEM);
