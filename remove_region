@@ -1,0 +1,53 @@
+#!/usr/bin/perl -w
+
+sub usage {
+
+  print <<__HERE
+Takes a CARP mesh and generates a .vpts file and a .vec file that meshalyer can visualize.
+
+Usage: $0 meshname region
+
+__HERE
+;
+
+  die(@_) if @_;
+}
+
+use strict;
+
+my $points = [];
+
+usage("Need to specify the meshname") if not @ARGV;
+
+my $mesh = shift(@ARGV);
+
+usage("Need to specify the region number") if not @ARGV;
+my $region = shift(@ARGV);
+
+open(ELEM, "$mesh.elem") or die("Can't open $mesh.elem for reading: $!\n");
+my $count = 0;
+while (my $line = <ELEM>) {
+  next if $line =~ /$region$/;
+  $count++;
+}
+close(ELEM);
+
+
+open(ELEM, "$mesh.elem") or die("Can't open $mesh.elem for reading: $!\n");
+open(LON, "$mesh.lon") or die("Can't open $mesh.lon for reading: $!\n");
+open(NEW_ELEM, ">removed.$mesh.elem") or die("Can't open removed.$mesh.elem for writing: $!\n");
+open(NEW_LON, ">removed.$mesh.lon") or die("Can't open removed.$mesh.lon for writing: $!\n");
+$throw_away = <ELEM>;
+print NEW_ELEM "$vec_count\n";
+while (my $line = <ELEM>) {
+  my $lon_line = <LON>;
+  next if $line =~ /$region$/;
+
+  print NEW_ELEM $line;
+  print NEW_LON $lon_line;
+
+}
+close(NEW_ELEM);
+close(NEW_LON);
+close(LON);
+close(ELEM);
