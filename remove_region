@@ -3,7 +3,7 @@
 sub usage {
 
   print <<__HERE
-Takes a CARP mesh and generates a .vpts file and a .vec file that meshalyer can visualize.
+Takes a CARP mesh and removes all the regions with a specific ID.
 
 Usage: $0 meshname region
 
