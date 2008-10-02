@@ -131,9 +131,13 @@ for (my $i=0; $i<3; $i++) {
       $dir /= $fiber_len;
     }
     open(LON, ">$name.lon") or die "Could not open $name.lon: $!\n";
-    #print LON "$num_fibers\n";
-    
-    print LON (join(" ", @fiber)."\n") x $num_fibers;
+    for (my $z=0; $z<$count[2]; $z++) {
+      for (my $y=0; $y<$count[1]; $y++) {
+	for (my $x=0; $x<$count[0]; $x++) {
+	  print ELEM join(" ", fiber()) . "\n";
+	}
+      }
+    }
     close(LON);
   }
 
@@ -189,6 +193,17 @@ for (my $i=0; $i<3; $i++) {
   }
   close(TRI);
 
+}
+
+sub fiber {
+#########################################
+#
+#
+
+  my (@coord) = @_;
+
+  return (0,0,0) if region_number(@coord)==1;
+  return (1,0,0);
 }
 
 sub region_number {
