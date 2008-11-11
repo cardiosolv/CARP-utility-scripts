@@ -20,11 +20,20 @@ End of line comments start with a #
 
 Here are the options that the program will look for:
 
-tissue = 300 400
+# required parameters
+tissue = 300 400 # size of the tissue in um
 h = 50 # step size along each axis (in um)
-fiber = circle # Fiber direction, must be normalized to 1
-bath = 0 0
+fiber = circle # Fiber definition.  Allowed values are
+#  horizontal - fibers going from left to right
+#  vertical - fibers going up and down
+#  curl - fibers going in a circle about the origin
+#  radial - fibers pointing to and away from the origin
 
+# Optional parameters
+bath = 0 0 # Size of the bath in the x and y axis surrounding the tissue.
+angle_variance = 0 # maxium degree variance of fiber direction
+rseed = 2 # some number that can be used to re-generate 
+          # the random angle variance
 
 Given a parameter file like the above, the code will generate a grid
 (surrounded by an optional bath), complete with .pts, .tetras, and .tri 
@@ -69,7 +78,15 @@ my @bath = (0,0);
 if (defined($par{bath})) {
     @bath = make_list($par{bath});
 }
-
+my $angle_variance = 0;
+if (defined($par{angle_variance})) {
+    $angle_variance = $par{angle_variance};
+}
+if (defined($par{rseed})) {
+    srand($par{rseed});
+} else {
+    srand(6858756);
+}
 
 my @count;
 my @start;
@@ -170,14 +187,22 @@ sub get_fiber {
     $mag += $loc[$i]**2;
   }
   $mag = sqrt($mag);
+  my $angle;
   if ($type eq "radial") {
     #compute the distance between this point and the center.  
-    return ($loc[0]/$mag, $loc[1]/$mag, 0);
+    $angle = atan2($loc[1], $loc[0]);
   } elsif ($type eq "curl") {
     my $angle = atan2($loc[1], $loc[0]);
     $angle += $pi/2;
-    return (cos($angle), sin($angle), 0);
+  } elsif ($type eq "horizontal") {
+    $angle = 0;
+  } elsif ($type eq "vertical") {
+    $angle = $pi/2;
   }
+
+  $angle += (2*rand()-1)*$pi*$angle_variance/180;
+
+  return (cos($angle), sin($angle), 0);
 }
 
 sub region_number {
