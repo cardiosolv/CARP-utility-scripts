@@ -73,7 +73,8 @@ if __name__=="__main__":
        for pt in elem:
            pt_area[pt] += elem_area
            for dim in range(0,3):
-               grad_mat[dim][pt, elem] += elem_area*elem_grad[:,dim]
+               for i in range(0,4):
+                   grad_mat[dim][pt, elem[i]] += elem_area*elem_grad[i,dim]
 
    del elem_file
    del pts
