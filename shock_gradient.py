@@ -73,7 +73,7 @@ if __name__=="__main__":
        for pt in elem:
            pt_area[pt] += elem_area
            for dim in range(0,3):
-               grad_mat[dim][pt, elem] = elem_area*elem_grad[:,dim]
+               grad_mat[dim][pt, elem] += elem_area*elem_grad[:,dim]
 
    del elem_file
    del pts
@@ -98,7 +98,7 @@ if __name__=="__main__":
        time = in_file.readline()
        for i in xrange(0, num_points):
            line = in_file.readline().strip()
-           phi_e[i] = line.split(" ")[0] # Read Phi_e
+           phi_e[i] = float(line.split(" ")[0]) # Read Phi_e
        in_file.close()
 
        grad_mag = zeros((num_points))
