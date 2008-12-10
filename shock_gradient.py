@@ -29,11 +29,13 @@ def strip_header(file):
 
 
 if __name__=="__main__":
-   parser = DictOptionParser(usage="Usage: %prog [options] meshname t-files")
+   parser = DictOptionParser(usage="Usage: %prog [-vm_on_regions 1,64] meshname t-files")
 
    (options, args) = parser.parse_args()
    if len(args) < 1:
       parser.print_help()
+      print "Use -vm_on_regions to plot the gradient of Vm instead of Phi_e."
+      print "You'll need to put in a comma separated list of all your tissue regions as the argument."
       sys.exit(1)
    name = args[0]
 
@@ -50,6 +52,9 @@ if __name__=="__main__":
    del pts_file
    
 
+   if options.has_key('vm_on_regions'):
+      options['vm_on_regions'] = options['vm_on_regions'].split(",")
+
    grad_mat = [sparse.lil_matrix((num_points, num_points))
                for i
                in range(0,3)
@@ -60,10 +65,15 @@ if __name__=="__main__":
    elem_file = open(name+".tetras", "r")
    num_elem = strip_header(elem_file)
    for line in elem_file:
+       arr = re.split(r'\s+', line.strip())
        elem = [int(point)-1
                for point
-               in re.split(r'\s+', line.strip())[0:4]
+               in arr[0:4]
                ]
+       region = arr.pop()
+       if options.has_key('vm_on_regions'):
+          if region not in options['vm_on_regions']:
+             continue
        shape = zeros((4,4))
        shape[3,:] = 1
        for i in range(0,4):
@@ -99,7 +109,11 @@ if __name__=="__main__":
        time = in_file.readline()
        for i in xrange(0, num_points):
            line = in_file.readline().strip()
-           phi_e[i] = float(line.split(" ")[0]) # Read Phi_e
+           if options.has_key('vm_on_regions'):
+              value = float(line.split(" ")[2])
+           else:
+              value = float(line.split(" ")[0]) # Read Phi_e
+           phi_e[i] = value
        in_file.close()
 
        grad_mag = zeros((num_points))
