@@ -30,14 +30,20 @@ def strip_header(file):
 
 if __name__=="__main__":
    parser = DictOptionParser(usage="Usage: %prog [-vm_on_regions 1,64] meshname t-files")
+   parser.add_option("-v", "--vm_on_regions",
+                     help=("Plots the gradient of Vm instead of Phi_e.\n"+
+                           "You'll need to put in a comma separated list of\n"+
+                           "all your tissue regions as the argument."),
+                     )
 
    (options, args) = parser.parse_args()
    if len(args) < 1:
       parser.print_help()
-      print "Use -vm_on_regions to plot the gradient of Vm instead of Phi_e."
-      print "You'll need to put in a comma separated list of all your tissue regions as the argument."
       sys.exit(1)
    name = args[0]
+
+   if options.has_key('vm_on_regions'):
+      options['vm_on_regions'] = options['vm_on_regions'].split(",")
 
    print "Reading in the pts file"
    pts_file = open(name+".pts", "r")
@@ -51,9 +57,6 @@ if __name__=="__main__":
           ]
    del pts_file
    
-
-   if options.has_key('vm_on_regions'):
-      options['vm_on_regions'] = options['vm_on_regions'].split(",")
 
    grad_mat = [sparse.lil_matrix((num_points, num_points))
                for i
