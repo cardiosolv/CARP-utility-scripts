@@ -1,0 +1,59 @@
+#!/usr/bin/env perl -w
+
+use strict;
+
+sub usage {
+########################################################
+
+  print <<__HERE
+$0 input_name output_name
+
+Converts a 2D mesh generated with the program triangle into a 2D CARP mesh.
+
+input_name is the name of the input mesh (input_name.node, input_name.ele)
+output_name is the name of the output carp mesh (output_name.pts, output_name.elem)
+
+__HERE
+;
+  die @_ if @_;
+}
+
+usage("Not enough input arguments") if scalar(@ARGV) < 2;
+my ($input_name, $output_name) = @ARGV;
+
+open(NODE, "$input_name.node") or die "Can't open node file: $!\n";
+open(PTS, ">$output_name.pts") or die "Can't open pts file: $!\n";
+my $header = <NODE>;
+if ($header =~ m,^(\d+),) {
+  print PTS "$1\n";
+}
+while (my $line=<NODE>) {
+  chomp $line;
+  $line =~ s,^\s*,,;
+  $line =~ s,\s*$,,;
+  next if $line =~ m,^#,;
+  my @line_array = split(/\s+/, $line);
+  print PTS "$line_array[1] $line_array[2] 0\n";
+}
+close(NODE);
+close(PTS);
+
+open(ELE, "$input_name.ele") or die "Can't open ele file: $!\n";
+open(ELEM, ">$output_name.elem") or die "Can't open elem file: $!\n";
+$header = <ELE>;
+if ($header =~ m,^(\d+),) {
+  print ELEM "$1\n";
+}
+while (my $line=<ELE>) {
+  chomp $line;
+  $line =~ s,^\s*,,;
+  $line =~ s,\s*$,,;
+  next if $line =~ m,^#,;
+  my @line_array = split(/\s+/, $line);
+  foreach my $item (@line_array) {
+    $item--;
+  }
+  print ELEM "Tr $line_array[1] $line_array[2] $line_array[3] 0\n";
+}
+close(ELE);
+close(ELEM);
