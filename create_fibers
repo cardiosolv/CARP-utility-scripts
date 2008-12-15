@@ -1,0 +1,64 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+sub usage {
+########################################################
+
+  print <<__HERE
+$0 meshname
+
+Use this script as a template to generate your own .lon files.
+
+__HERE
+;
+  die @_ if @_;
+}
+
+usage("Not enough input arguments") if scalar(@ARGV) != 1;
+
+my ($meshname) = @ARGV;
+
+my $pi = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679;
+
+my $pts = [];
+
+open(PTS, "$meshname.pts") or die "Can't open $meshname.pts: $!\n";
+my $header = <PTS>;
+foreach my $line (<PTS>) {
+    chomp $line;
+    my @temp = split(/\s+/, $line);
+    push @$pts, \@temp;
+}
+close(PTS);
+
+open(ELEM, "$meshname.elem") or die "Can't open $meshname.elem: $!\n";
+open(LON, ">$meshname.lon") or die "Can't open $meshname.lon: $!\n";
+my $header = <ELEM>;
+foreach my $line (<ELEM>) {
+    chomp($line);
+    my @indices = split(/\s+/, $line);
+    my $region = pop @indices;
+    my $elem_type = shift @indices;
+
+    my @center = (0,0,0);
+    for (my $i=0; $i<3; $i++) {
+	foreach my $index (@indices) {
+	    $center[$i] += $pts->[$index][$i];
+	}
+	$center[$i] /= scalar(@indices);
+    }
+
+    # by this point, we have 
+    # @center  - the center of the element
+    # @indices - the indexes of all points in this element
+    # $region - the region number of this element
+    # $elem_type - the structure of this element.
+
+    # the following defines a circular fiber orientation on a 2D grid.
+    my $angle = atan2($center[1], $center[0]);
+    $angle += $pi/2;
+    print LON join(" ", (cos($angle), sin($angle), 0)) . "\n";
+}
+close(ELEM);
+close(LON);
