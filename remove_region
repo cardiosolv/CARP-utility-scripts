@@ -1,5 +1,7 @@
 #!/usr/bin/perl -w
 
+use strict;
+
 sub usage {
 
   print <<__HERE
@@ -13,7 +15,6 @@ __HERE
   die(@_) if @_;
 }
 
-use strict;
 
 my $points = [];
 
@@ -37,8 +38,8 @@ open(ELEM, "$mesh.elem") or die("Can't open $mesh.elem for reading: $!\n");
 open(LON, "$mesh.lon") or die("Can't open $mesh.lon for reading: $!\n");
 open(NEW_ELEM, ">removed.$mesh.elem") or die("Can't open removed.$mesh.elem for writing: $!\n");
 open(NEW_LON, ">removed.$mesh.lon") or die("Can't open removed.$mesh.lon for writing: $!\n");
-$throw_away = <ELEM>;
-print NEW_ELEM "$vec_count\n";
+my $throw_away = <ELEM>;
+print NEW_ELEM "$count\n";
 while (my $line = <ELEM>) {
   my $lon_line = <LON>;
   next if $line =~ /$region$/;
