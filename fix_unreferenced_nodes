@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -w
+#!/usr/bin/perl -w
 
 use strict;
 
@@ -54,6 +54,7 @@ sub clean_file(\@$) {
   my $line;
   if ($file =~ /tetras$/
       or $file =~ /tris$/
+      or $file =~ /elem$/
       ) {
     $line = <TETIN>;
     print TETOUT $line;

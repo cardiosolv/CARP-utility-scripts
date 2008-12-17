@@ -26,6 +26,7 @@ usage("Need to specify the region number") if not @ARGV;
 my $region = shift(@ARGV);
 
 open(ELEM, "$mesh.elem") or die("Can't open $mesh.elem for reading: $!\n");
+my $temp = <ELEM>;
 my $count = 0;
 while (my $line = <ELEM>) {
   next if $line =~ /$region$/;
