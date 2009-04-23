@@ -117,6 +117,9 @@ foreach my $elem (<ELEM>) {
     make_pyramid($fiber, $a[7], $middle, @a[1,3,5,4]);
     make_pyramid($fiber, $a[7], $middle, @a[2,3,5,6]);
     make_pyramid($fiber, $a[7], $middle, @a[1,2,6,4]);
+    print OUT_ELEM "Tt $middle $a[1] $a[2] $a[3] $a[7]\n"
+    print OUT_ELEM "Tt $middle $a[4] $a[5] $a[6] $a[7]\n"
+    print OUT_LON $fiber x 2;
   } elsif ($a[0] eq "Py") {
     make_pyramid($fiber, $a[6], $a[5], @a[1,2,3,4]);
   } else {
