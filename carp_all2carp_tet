@@ -1,0 +1,194 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+sub usage {
+####################################################
+# Prints out usage information and exits.
+#
+#
+
+  print <<__HERE
+
+Usage:
+  $0 <name>
+
+Requires: <name>.pts <name>.elem <name>.lon
+Outputs: tet.<name>.pts tet.<name>.elem tet.<name>.lon
+...where tet.<name> is a conformal tetrahedral version of a CARP mesh
+
+The output mesh can also be fed into carp2memfem to make an equivalent
+memfem simulation.
+
+
+__HERE
+    ;
+} 
+
+
+if (not @ARGV) {
+  usage();
+  die "Need to specify the base name\n";
+}
+
+my $name = shift @ARGV;
+my @typelist = qw(elem lon pts);
+my $dim = 3;
+
+foreach my $type (@typelist) {
+  if (not -e "$name.$type") {
+    usage();
+    die "Can't find file $name.$type\n";
+  }
+}
+
+
+my %face_map = ();
+my $num_elem = 0;
+my $element_midpoints = 0;
+{
+  
+  open(ELEM, "$name.elem") or die "Can't open elem file: $!";
+  my $temp = <ELEM>;
+  foreach my $line (<ELEM>) {
+    chomp($line);
+    my @a = split(/\s+/, $line);
+    if ($a[0] eq "Hx") {
+      $face_map{make_face(@a[1,2,8,5])} = -1;
+      $face_map{make_face(@a[2,3,7,8])} = -1;
+      $face_map{make_face(@a[3,4,6,7])} = -1;
+      $face_map{make_face(@a[1,4,6,5])} = -1;
+      $face_map{make_face(@a[1,2,3,4])} = -1;
+      $face_map{make_face(@a[5,6,7,8])} = -1;
+      $num_elem += 24;
+      $element_midpoints++;
+    } elsif ($a[0] eq "Pr") {
+      $face_map{make_face(@a[1,3,5,4])} = -1;
+      $face_map{make_face(@a[2,3,5,6])} = -1;
+      $face_map{make_face(@a[1,2,6,4])} = -1;
+      $num_elem += 12;
+      $element_midpoints++;
+    } elsif ($a[0] eq "Py") {
+      $face_map{make_face(@a[1,2,3,4])} = -1;
+      $num_elem += 4;
+    } else {
+      $num_elem += 1;
+    }
+  }
+  close(ELEM);
+}
+my $points = read_points_file("$name.pts");
+
+open(OUT_PTS, ">tet.$name.pts");
+print OUT_PTS scalar(@$points)+scalar(keys %face_map)+$element_midpoints . "\n";
+foreach my $point (@$points) {
+  print OUT_PTS join(" ", @$point) . "\n";
+}
+
+my $numpoints = scalar(@$points);
+foreach my $face (keys %face_map) {
+  $face_map{$face} = $numpoints++;
+  print OUT_PTS join(" ", midpoint(split(/ /, $face))) . "\n";
+}
+  
+open(OUT_ELEM, ">tet.$name.elem");
+print OUT_ELEM "$num_elem\n";
+open(OUT_LON, ">tet.$name.lon");
+
+open(ELEM, "$name.elem");
+open(LON, "$name.lon");
+my $temp = <ELEM>;
+foreach my $elem (<ELEM>) {
+  chomp($elem);
+  my $fiber = <LON>;
+  my @a = split(/\s+/, $elem);
+  if ($a[0] eq "Hx") {
+    my $middle = $numpoints++;
+    print OUT_PTS join(" ", midpoint(@a[1..8])) . "\n";
+    make_pyramid($fiber, $a[9], $middle, @a[1,2,8,5]);
+    make_pyramid($fiber, $a[9], $middle, @a[2,3,7,8]);
+    make_pyramid($fiber, $a[9], $middle, @a[3,4,6,7]);
+    make_pyramid($fiber, $a[9], $middle, @a[1,4,6,5]);
+    make_pyramid($fiber, $a[9], $middle, @a[1,2,3,4]);
+    make_pyramid($fiber, $a[9], $middle, @a[5,6,7,8]);
+  } elsif ($a[0] eq "Pr") {
+    my $middle = $numpoints++;
+    print OUT_PTS join(" ", midpoint(@a[1..6])) . "\n";
+    make_pyramid($fiber, $a[7], $middle, @a[1,3,5,4]);
+    make_pyramid($fiber, $a[7], $middle, @a[2,3,5,6]);
+    make_pyramid($fiber, $a[7], $middle, @a[1,2,6,4]);
+  } elsif ($a[0] eq "Py") {
+    make_pyramid($fiber, $a[6], $a[5], @a[1,2,3,4]);
+  } else {
+    print OUT_ELEM "$elem\n";
+    print OUT_LON $fiber;
+  }
+}
+
+sub midpoint {
+###############################333
+# Finds the mindpoint of a bunch of points.
+# Accesses the global variable points
+  my @point = (0,0,0);
+  my @nodes = @_;
+  foreach my $node (@nodes) {
+    for (my $i=0; $i<3; $i++) {
+      $point[$i] += $points->[$node][$i];
+    }
+  }
+  for (my $i=0; $i<3; $i++) {
+    $point[$i] /= scalar(@nodes);
+  }
+  return @point;
+}
+
+sub make_face {
+##################################3333
+# returns a string describing each face
+#
+  return join(" ", sort {$a <=> $b} @_);
+}
+
+sub make_pyramid {
+###########################################33
+# prints out a pyramid in tets.
+  my ($fiber, $region, $tip, @face) = @_;
+  my $middle = $face_map{make_face(@face)};
+  print OUT_ELEM "Tt $tip $middle $face[0] $face[1] $region\n";
+  print OUT_ELEM "Tt $tip $middle $face[1] $face[2] $region\n";
+  print OUT_ELEM "Tt $tip $middle $face[2] $face[3] $region\n";
+  print OUT_ELEM "Tt $tip $middle $face[3] $face[0] $region\n";
+  print OUT_LON $fiber x 4;
+}
+
+sub read_points_file {
+#########################################
+# P: $filename
+# R: $points->[1..numpoints][0..$dim-2]
+
+  my ($filename) = @_;
+
+  my $points = [];
+
+  open(FILE, $filename) or die "Can't open '$filename' for reading: $!\n";
+  my $line = <FILE>;
+
+  foreach my $line (<FILE>) {
+    next if $line =~ /^\s*$/;
+
+    push @$points, [split(/\s+/, strip($line))];
+  }
+  close(FILE);
+
+  return $points;
+
+}
+
+sub strip {
+  my ($string) = @_;
+
+  $string =~ s,^\s*,,;
+  $string =~ s,\s*$,,;
+
+  return $string;
+}
