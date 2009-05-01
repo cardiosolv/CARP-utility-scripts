@@ -1,0 +1,138 @@
+#!/usr/bin/env python
+
+# ./<file> <inputfile>
+# input file contains: first line = directory structure
+# rest of the lines are different values of stuff
+
+import os
+from itertools import product
+from sys import argv
+from optparse import OptionParser
+
+class BatchPar:
+    def __init__(self):
+        self.dircount = 0
+        self.varList = []
+        self.typeList = []
+    def createDirectories(self):
+        for i in self.varList:
+            directory = self.dirformat % i
+            print directory
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+    def removeDirectories(self):
+        for i in self.varList:
+            directory = self.dirformat % i
+            if os.path.exists(directory):
+                os.removedirs(directory)
+    def createParFiles(self):
+        runScript = open('run-all.sh','w')
+        for i,dirname in enumerate(self.varList):
+            directory = self.dirformat % dirname
+            newParFile = open(directory + '/newPar.par','w')
+            runScript.write('carp +F ' + directory + '/newPar.par &\n')
+            runScript.write('export pid="${!}"\nwait $pid\n')
+            wpf = wholeParFile
+            for j,type1 in enumerate(self.typeList[i]):
+                wpf = wpf.replace('$'+type1, str(self.varList[i][j]))
+            newParFile.writelines(wpf)
+            newParFile.close()
+        runScript.close()
+
+def parseLine(line1, lineNum):
+    if line1[0] == 'dirformat':
+        line1 = line1[2].replace('%','%s')
+    #   line1 = line1.split('/')
+        bParFile.dirformat = line1
+        bParFile.dircount = line1.count('%')
+        return
+    if line1[0] == 'dirnames':
+        line1 = line1[2:]
+        if len(line1) == bParFile.dircount:
+            bParFile.dirtypes = line1
+        return
+    if line1[0] == 'combinations':
+        parseCombinations(int(line1[2]), lineNum)
+        return
+    if line1[0] == 'cases':
+        parseCases(int(line1[2]), lineNum)
+        return
+
+def parseCombinations(combos, lineNum):
+    #    print combos, lineNum
+    comboList = []
+    typeList = []
+    for i in xrange(lineNum,lineNum+combos):
+        typeList.append(wholeFile[i][0])
+        comboList.append(parseValues(wholeFile[i][2]))
+        # print wholeFile[i]
+    allCombos = list(product(*comboList))
+    bParFile.varList.extend(allCombos)
+    for i in xrange(0,len(allCombos)):
+        bParFile.typeList.append(typeList)
+    #print 'combolist is: ', comboList
+    #print 'typelist is: ', typeList
+    return
+
+def parseCases(cases, lineNum):
+    typeList = wholeFile[lineNum]
+    caseList = []
+    lineNum += 1
+    for i in xrange(lineNum,lineNum+cases):
+        caseList.append(map(int,wholeFile[i]))
+    #print 'caselist is: ', caseList
+    #print 'typelist is: ', typeList
+    caseList = map(tuple,caseList)
+    bParFile.varList.extend(caseList)
+    for i in xrange(0,len(caseList)):
+        bParFile.typeList.append(typeList)
+    return
+
+def parseValues(value):
+    # print 'value is: ',value
+    if value.find(':') != -1:
+        nValue = value.split(':')
+        nValue = map(int, nValue)
+        nValue = range(nValue[0],nValue[2]+nValue[1],nValue[1])
+        return nValue
+    elif value.find(',') != -1:
+        nValue = value.split(',')
+        return nValue
+    else:
+        return [value]
+
+if __name__ == '__main__':
+    # Parser for additional options
+    parser = OptionParser(conflict_handler="resolve")
+    parser.add_option('--remove', action='store_true', dest='remove',
+                      help='remove files instead of create them')
+    parser.add_option('--force-remove', action='store_true', dest='fremove',
+                      help='force removing of all files and dirs')
+    parser.set_defaults(remove = False, fremove = False)
+    parser.set_description('Batch par file generation script')
+    parser.set_usage('new_make_simulations.py [options file] [par file] [options]')
+    try:
+        (options,args) = parser.parse_args()
+    except:
+        raise
+    # Open template file
+    templateFile = open(argv[1],'r')
+    wholeFile = [line for line in templateFile]
+    wholeFile = filter(lambda c:c[0] != '\n' and c[0] != '#', wholeFile)
+    wholeFile = map(lambda s:s.split(), wholeFile)
+    templateFile.close()
+
+    # Open par file
+    parFile = open(argv[2],'r')
+    wholeParFile = parFile.read()
+    parFile.close()
+
+    bParFile = BatchPar()
+    for i,line in enumerate(wholeFile):
+        parseLine(line,i+1)
+    if options.remove or options.fremove:
+        bParFile.removeDirectories()
+    else:
+        bParFile.createDirectories()
+    bParFile.createParFiles()
+
