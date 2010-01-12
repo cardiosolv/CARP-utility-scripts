@@ -54,10 +54,10 @@ class IgbFile:
     @staticmethod
     def new(filename, dim_x, dim_t, fac_t=1, start_time=0):
         props = {}
-        props['x'] = str(dim_x)
-        props['t'] = str(dim_t)
-        props['fac_t'] = str(fac_t)
-        props['dim_t'] = str(start_time+fac_t*dim_t) 
+        props['x'] = "%d" % dim_x
+        props['t'] = "%d" % dim_t
+        props['fac_t'] = "%g" % fac_t
+        props['dim_t'] = "%g" % (start_time+fac_t*(dim_t-1)) 
         
         props['y'] = "1"
         props['z'] = "1"
@@ -80,7 +80,7 @@ class IgbFile:
     @staticmethod
     def header(props):
         header_items = [key+":"+props[key]+" " for key in props.keys()]
-        heaader = ''
+        header = ''
         line = ''
         for item in header_items:
             if len(line)+len(item) <= 70:
@@ -100,7 +100,7 @@ class IgbFile:
         return header
 
     def end_time(self):
-        return self.start_time+self.fac_t*self.dim_t
+        return self.start_time+self.fac_t*(self.dim_t-1)
 
     def get_all_nodes_at_time(self, time):
         self.file.seek(self.dim_x*time*self.typesize+1024, 0)
@@ -138,7 +138,7 @@ if __name__=="__main__":
                       )
 
     (options, args) = parser.parse_args()
-    if len(args) != 1:
+    if len(args) < 1:
         print "Need the input igb file"
         print parser.print_help()
         sys.exit(1)
@@ -178,10 +178,10 @@ if __name__=="__main__":
         for line in args:
             if state == 0:
                 files.append(IgbFile.open(line))
-                index = 1
+                state = 1
             else:
                 files[-1].start_time = float(line)
-                index = 0
+                state = 0
         #make sure they all have the same fac_t
         fac_t = files[0].fac_t
         for file in files[1:]:
@@ -202,7 +202,7 @@ if __name__=="__main__":
         files.sort(file_compare)
         
         # make sure the ending times of each file match or overlap.
-        for i in xrange(0:len(files)-1):
+        for i in xrange(0,len(files)-1):
             assert files[i+1].start_time < files[i].end_time()
 
         start_time = files[0].start_time
