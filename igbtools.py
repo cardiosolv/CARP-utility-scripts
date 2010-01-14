@@ -19,7 +19,6 @@ class IgbFile:
         self.typesize = 4
         self.typetype = float
 
-    @staticmethod
     def open(filename):
         self = IgbFile()
         self.filename = filename
@@ -43,15 +42,15 @@ class IgbFile:
             self.typesize = 8
             self.typetype = double
         return self
+    open = staticmethod(open)
 
-    @staticmethod
     def like(other, filename):
         #copy the other file into this filename.
         shutil.copyfile(other.filename, filename)
         #open and return the new file.
         return IgbFile.open(filename)
+    like = staticmethod(like)
 
-    @staticmethod
     def new(filename, dim_x, dim_t, fac_t=1, start_time=0):
         props = {}
         props['x'] = "%d" % dim_x
@@ -76,8 +75,8 @@ class IgbFile:
         file.close()
 
         return IgbFile.open(filename)
+    new = staticmethod(new)
         
-    @staticmethod
     def header(props):
         header_items = [key+":"+props[key]+" " for key in props.keys()]
         header = ''
@@ -98,6 +97,7 @@ class IgbFile:
             header += ' '*(1021-len(header))
         header += "\r\n\f"
         return header
+    header = staticmethod(header)
 
     def end_time(self):
         return self.start_time+self.fac_t*(self.dim_t-1)
@@ -133,6 +133,12 @@ if __name__=="__main__":
     parser.add_option("-c", "--combine_igb_files",
                       dest="combine_igb_files",
                       help="Combine igb files written across restarts into one large igb file.  Use with arguments file1.igb file1_starttime file2.igb file2_starttime ...",
+                      default=False,
+                      action="store_true",
+                      )
+    parser.add_option("-s", "--snapshot",
+                      dest="snapshot",
+                      help="Take a snapshot (output a .dat file) of one timestep of an igb file.  Use with arguments file.igb snapshot_time.",
                       default=False,
                       action="store_true",
                       )
@@ -203,7 +209,7 @@ if __name__=="__main__":
         
         # make sure the ending times of each file match or overlap.
         for i in xrange(0,len(files)-1):
-            assert files[i+1].start_time < files[i].end_time()
+            assert files[i+1].start_time <= files[i].end_time()
 
         start_time = files[0].start_time
         end_time = files[-1].end_time()
@@ -229,8 +235,13 @@ if __name__=="__main__":
             out.set_all_nodes_at_time(i, files[file_index].get_all_nodes_at_time(file_time))
             file_time += 1
 
-                                      
-        
-        
-
-        
+    if options.has_key("snapshot"):
+        infile = args[0];
+        igb = IgbFile.open(infile);
+        time = args[1];
+        data = igb.get_all_nodes_at_time(int(time));
+        filename = "vm_" + time + ".dat";
+        file = open(filename, 'w');
+        for i in data :            
+            file.write(str(i) + "\n");
+        file.close;
