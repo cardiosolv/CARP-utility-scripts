@@ -102,11 +102,20 @@ class IgbFile:
     def end_time(self):
         return self.start_time+self.fac_t*(self.dim_t-1)
 
+    def get_data(self, node, time):
+        self.file.seek((self.dim_x*time+node)*self.typesize+1024, 0)
+        linebuffer = fread(self.file, 1, self.typecode)
+        return linebuffer
+
+    def set_data(self, time, buffer):
+        self.file.seek((self.dim_x*time+node)*self.typesize+1024, 0)
+        fwrite(self.file, buffer.size, buffer)
+
     def get_all_nodes_at_time(self, time):
         self.file.seek(self.dim_x*time*self.typesize+1024, 0)
         linebuffer = fread(self.file, self.dim_x, self.typecode)
         return linebuffer
-        
+
     def set_all_nodes_at_time(self, time, buffer):
         self.file.seek(self.dim_x*time*self.typesize+1024, 0)
         fwrite(self.file, buffer.size, buffer)
