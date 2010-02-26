@@ -203,7 +203,7 @@ sub fiber {
   my (@coord) = @_;
 
   return (0,0,0) if region_number(@coord)==1;
-  return (1,0,0);
+  return @fiber;
 }
 
 sub region_number {
