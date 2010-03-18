@@ -56,7 +56,7 @@ class IgbFile:
         props['x'] = "%d" % dim_x
         props['t'] = "%d" % dim_t
         props['fac_t'] = "%g" % fac_t
-        props['dim_t'] = "%g" % (start_time+fac_t*(dim_t-1)) 
+        props['dim_t'] = "%g" % fac_t*(dim_t-1) 
         
         props['y'] = "1"
         props['z'] = "1"
@@ -150,6 +150,12 @@ if __name__=="__main__":
                       help="Take a snapshot (output a .dat file) of one timestep of an igb file.  Use with arguments file.igb snapshot_time.",
                       default=False,
                       action="store_true",
+                      )
+    parser.add_option("-e", "--extract_range",
+                      dest="extract_range",
+                      help="Extract a range of timesteps from the igb file.  Use with arguments file.igb start_index end_index [skip=1].  Reads until start_index+i*skip > end_time, i=0,1,2,...  End result is written to extracted.igb.  To read from the beginning of the file, use start_index=0",
+                      default=False,
+                      action="store_true"
                       )
 
     (options, args) = parser.parse_args()
@@ -254,3 +260,21 @@ if __name__=="__main__":
         for i in data :            
             file.write(str(i) + "\n");
         file.close;
+
+    if options.has_key("extract_range"):
+        infile = IgbFile.open(args[0])
+        start_index = int(args[1])
+        end_index = int(args[2])
+        if len(args) < 3:
+            skip = 1
+        else:
+            skip = int(args[3])
+        dim_t = int((end_index-start_index)/skip) + 1
+        outfile = IgbFile.new("extracted.igb",
+                              dim_x=infile.dim_x,
+                              fac_t=infile.fac_t*skip,
+                              start_time=infile.start_time+start_index*infile.fac_t,
+                              dim_t=dim_t,
+                              )
+        for i in xrange(0,dim_t):
+            outfile.set_all_nodes_at_time(i, infile.get_all_nodes_at_time(start_index+i*skip))
