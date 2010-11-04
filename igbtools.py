@@ -157,6 +157,12 @@ if __name__=="__main__":
                       default=False,
                       action="store_true"
                       )
+    parser.add_option("-b", "--subindex",
+                      dest="subindex",
+                      help="Subindex the nodes of an igb file.  Use with arguments 'file.igb subset.vtx'.  subset.vtx must be an extra vertex set.",
+                      default=False,
+                      action="store_true",
+                      )
 
     (options, args) = parser.parse_args()
     if len(args) < 1:
@@ -278,3 +284,32 @@ if __name__=="__main__":
                               )
         for i in xrange(0,dim_t):
             outfile.set_all_nodes_at_time(i, infile.get_all_nodes_at_time(start_index+i*skip))
+    if options.has_key("subindex"):
+        assert(len(args) == 2)
+
+        index_file = open(args[1],'r')
+        index = []
+        num_index = int(index_file.readline().strip())
+        vtx_type = index_file.readline().strip()
+        if 'extra' != vtx_type:
+            print "Warning: You should really be using 'extracellular' vertex sets.  Did you make a mistake?"
+        for line in index_file:
+            index.append(int(line.strip()))
+        del index_file
+        assert(num_index == len(index))
+        
+        infile = IgbFile.open(args[0])
+        outfile = IgbFile.new("subindex.igb",
+                              dim_x=len(index),
+                              fac_t=infile.fac_t,
+                              start_time=infile.start_time,
+                              dim_t=infile.dim_t,
+                              )
+        
+        for t in xrange(0,infile.dim_t):
+            input = infile.get_all_nodes_at_time(t)
+            output = np.array([len(index)],input.dtype)
+            for ii in xrange(0,len(index)):
+                output[ii] = input[index[ii]]
+            outfile.set_all_nodes_at_time(t, output)
+        
