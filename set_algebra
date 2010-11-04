@@ -13,6 +13,8 @@ def read(filename):
     file = open(filename, "r")
 
     ret = Set()
+    line = file.readline()
+    line = file.readline()
     for line in file.readlines():
         ret.add(int(line.strip()))
 	
@@ -20,7 +22,7 @@ def read(filename):
 
 def read_dir(directory):
     global _model_name
-    _set_file = re.compile(_model_name + r'\.(\w+)\.set')
+    _set_file = re.compile(r'(\w+)\.vtx')
     for _f in os.listdir(directory):
 	_m = _set_file.match(_f)
 	if (_m):
@@ -35,10 +37,12 @@ def write(name):
     if not is_a_set(name):
 	print "Error: Couldn't find set name of '%s'" % name
 	return
-    f = open("%s/%s.%s.set" % ('.', _model_name, name),
+    f = open("%s/%s.vtx" % ('.', name),
              "w"
              )
 
+    print >>f,len(globals()[name])
+    print >>f,"extra"
     for n in globals()[name]:
         print >>f, n
 
@@ -56,7 +60,7 @@ def ls():
 
 
 if (__name__ == "__main__"):
-    if len(sys.argv) < 2:
+    if len(sys.argv) != 1:
 	print """
 Usage:
 ./set_arith <model_name>
@@ -129,5 +133,4 @@ point50.a.set  point50.b.set  point50.d.set  point50.e.set  set_arith
 """
 	sys.exit(1)
     
-    _model_name = sys.argv[1]
     read_dir('.')
