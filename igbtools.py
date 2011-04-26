@@ -56,7 +56,7 @@ class IgbFile:
         props['x'] = "%d" % dim_x
         props['t'] = "%d" % dim_t
         props['fac_t'] = "%g" % fac_t
-        props['dim_t'] = "%g" % fac_t*(dim_t-1) 
+        props['dim_t'] = "%g" % (fac_t*(dim_t-1))
         
         props['y'] = "1"
         props['z'] = "1"
@@ -160,6 +160,12 @@ if __name__=="__main__":
     parser.add_option("-b", "--subindex",
                       dest="subindex",
                       help="Subindex the nodes of an igb file.  Use with arguments 'file.igb subset.vtx'.  subset.vtx must be an extra vertex set.",
+                      default=False,
+                      action="store_true",
+                      )
+    parser.add_option("-m", "--make_igb_file",
+                      dest="make_igb_file",
+                      help="Make an igb file from .dat files. Writes to 'combined.igb'.  Use with arguments file1.dat [file2.dat [file3.dat...]]",
                       default=False,
                       action="store_true",
                       )
@@ -308,8 +314,30 @@ if __name__=="__main__":
         
         for t in xrange(0,infile.dim_t):
             input = infile.get_all_nodes_at_time(t)
-            output = np.array([len(index)],input.dtype)
+            output = np.zeros([len(index)],input.dtype)
             for ii in xrange(0,len(index)):
                 output[ii] = input[index[ii]]
             outfile.set_all_nodes_at_time(t, output)
+    if options.has_key("make_igb_file"):
+        #read in all the .dat files
+        assert(len(args) > 1)
         
+        point_size = 0;
+        t = 0;
+        for dat_file in args:
+            dat_array = []
+            for line in open(dat_file, "r"):
+                dat_array.append(float(line.strip()))
+            if point_size == 0:
+                point_size = len(dat_array)
+                outfile = IgbFile.new("combined.igb",
+                                      dim_x=point_size,
+                                      fac_t=1,
+                                      start_time=0,
+                                      dim_t=len(args),
+                                      )
+            else:
+                assert(point_size == len(dat_array))
+            output = np.array(dat_array,outfile.typecode)
+            outfile.set_all_nodes_at_time(t, output)
+            t += 1
