@@ -1,0 +1,28 @@
+This project contains miscellaneous scripts that are commonly used for
+scripts.  They are released in the public domain.
+
+Files for manipulating CARP meshes:
+ * carp_all2carp_tet - Takes in a hybrid carp mesh and returns a carp tetrahedral mesh.
+ * create_fibers - Use this script as a template to create your own fibers.
+ * extract_edges - extracts the edges from a .tri file.
+ * fix_unreferenced_nodes - finds any nodes that aren't part of an element and removes them.
+ * make_carp_2d_grid - makes a 2d grid
+ * make_carp_regular_grid - makes a 3D slab of tissue
+ * make_carp_cylindrical_shell - makes a cylindrical grid.
+ * remove_region - removes a region from a mesh.
+ * set_algebra - Helps with the construction of .vtx files.
+ * triangle_convert - converts a mesh generated with "triangle" into a carp mesh.
+ * surfaces_only - removes nodes that aren't a part of a surface.
+
+Files for processing CARP output files:
+ * apd - takes in a .dat file of times and voltages.  Finds APD
+ * curvature.py - measure the curvature of a CARP mesh.
+ * expand_dat.py - takes a intracellular dat file as input, expands it to the extracellular space.
+ * gracetim - outputs a stimulus current for 1D visualization purposes
+ * igb_data.m & igb_size.m - functions for reading in IGB files in MATLAB (tm) or octave
+ * igbtools.py - general utility scripts for manipulating IGB files.
+ * meshalyzer_fibers - processes the .lon file so it can be viewed in Meshalyzer
+
+Miscellaneous utility scripts
+ * header_guard - puts a guard on a header so it isn't included multiple times.  Can be run over and over in succession.
+ * pcut - a version of cut that uses perl regex for spaces to separate columns
