@@ -3,7 +3,6 @@ import numpy as np
 import shutil
 import optparse
 import mmap
-from scipy.io.numpyio import fwrite, fread
 
 class IgbFile:
     "Reads the header and data from an IGB file"
@@ -17,7 +16,7 @@ class IgbFile:
         self.fac_t = 0
         self.typecode = 'f'
         self.typesize = 4
-        self.typetype = float
+        self.typetype = np.float32
 
     def open(filename):
         self = IgbFile()
@@ -31,16 +30,21 @@ class IgbFile:
             self.props[parameter[0]] = parameter[1]
         self.dim_x = int(self.props['x'])
         self.dim_t = int(self.props['t'])
-        self.fac_t = float(self.props['fac_t'])
+        if self.props.has_key('org_t'):
+            self.start_time = float(self.props['org_t'])
+        if self.props.has_key('fac_t'):
+            self.fac_t = float(self.props['fac_t'])
+        else:
+            self.fac_t = (float(self.props['dim_t'])-self.start_time)/(self.dim_t-1)
 
         if self.props['type'] == 'float':
             self.typecode = 'f'
             self.typesize = 4
-            self.typetype = float
+            self.typetype = np.float32
         elif self.props['type'] == 'double':
             self.typecode = 'd' 
             self.typesize = 8
-            self.typetype = double
+            self.typetype = np.float64
         return self
     open = staticmethod(open)
 
@@ -104,21 +108,21 @@ class IgbFile:
 
     def get_data(self, node, time):
         self.file.seek((self.dim_x*time+node)*self.typesize+1024, 0)
-        linebuffer = fread(self.file, 1, self.typecode)
+        linebuffer = np.fromfile(self.file, self.typetype, 1)
         return linebuffer
 
-    def set_data(self, time, buffer):
+    def set_data(self, node, time, buffer):
         self.file.seek((self.dim_x*time+node)*self.typesize+1024, 0)
-        fwrite(self.file, buffer.size, buffer)
+        buffer.tofile(self.file)
 
     def get_all_nodes_at_time(self, time):
         self.file.seek(self.dim_x*time*self.typesize+1024, 0)
-        linebuffer = fread(self.file, self.dim_x, self.typecode)
+        linebuffer = np.fromfile(self.file, self.typetype, self.dim_x)
         return linebuffer
 
     def set_all_nodes_at_time(self, time, buffer):
         self.file.seek(self.dim_x*time*self.typesize+1024, 0)
-        fwrite(self.file, buffer.size, buffer)
+        buffer.tofile(self.file)
 
 # A simple class to help me parse options into a dictionary.
 # Sometimes, dictionaries are easier to manipulate than objects.
