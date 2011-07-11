@@ -124,6 +124,18 @@ class IgbFile:
         self.file.seek(self.dim_x*time*self.typesize+1024, 0)
         buffer.tofile(self.file)
 
+    def get_all_times(self):
+        a = np.zeros([self.dim_t],self.dtype)
+        for ii in xrange(0,self.dim_t):
+            a[ii] = start_time + self.fac_t*ii
+        return a
+
+    def get_all_values_at_node(self, node):
+        a = np.zeros([self.dim_t],self.dtype)
+        for ii in xrange(0,self.dim_t):
+            a[ii] = self.get_data(node, ii)
+        return a
+
 # A simple class to help me parse options into a dictionary.
 # Sometimes, dictionaries are easier to manipulate than objects.
 class DictOptionParser(optparse.OptionParser):
@@ -170,6 +182,12 @@ if __name__=="__main__":
     parser.add_option("-m", "--make_igb_file",
                       dest="make_igb_file",
                       help="Make an igb file from .dat files. Writes to 'combined.igb'.  Use with arguments file1.dat [file2.dat [file3.dat...]]",
+                      default=False,
+                      action="store_true",
+                      )
+    parser.add_option("-t", "--trace",
+                      dest="trace",
+                      help="Trace the values from a single node.  Use with arguments 'file.igb node_number'.",
                       default=False,
                       action="store_true",
                       )
@@ -345,3 +363,12 @@ if __name__=="__main__":
             output = np.array(dat_array,outfile.typecode)
             outfile.set_all_nodes_at_time(t, output)
             t += 1
+    if options.has_key("trace"):
+        assert(len(args) == 2)
+        
+        infile = args[0];
+        igb = IgbFile.open(infile);
+        node = int(args[1]);
+
+        for ii in xrange(0,igb.dim_t):
+            print "%g %g" % (igb.start_time+ii*igb.fac_t, igb.get_data(node, ii))
