@@ -1,0 +1,69 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+sub usage {
+##############################################
+# Dies with arguments.
+#
+
+  print <<_HERE
+Usage: $0 meshname
+
+Reads in meshname.pts, meshname.elem.  The carp mesh must be made only
+of tetrahedra (Tt).  Use carp_all2carp_tet to do this for regular
+meshes.
+
+Writes out meshname.node and meshname.ele with 1 based ordering.
+
+_HERE
+;
+
+  die join(" ", @_) . "\n" if @_;
+}
+
+usage("Need a meshname!") if scalar @ARGV != 1;
+my $meshname = shift(@ARGV);
+
+{
+  my $ptsfile;
+  open($ptsfile, "$meshname.pts") or die "Can't open '$meshname.pts' for reading: $!\n";
+  my $numpoints = <$ptsfile>;
+  $numpoints =~ s/^\s*//;
+  $numpoints =~ s/\s*$//;
+  
+  my $nodefile;
+  open($nodefile, ">$meshname.node") or die "Can't open '$meshname.node' for writing: $!\n";
+  print $nodefile "$numpoints 3 0 0\n";
+
+  # Use 1 based ordering, default for tetgen.
+  for (my $i=1; $i <= $numpoints; $i++) {
+    my $line = <$ptsfile>;
+    print $nodefile "$i $line";
+  }
+}
+
+{
+  my $elemfile;
+  open($elemfile, "$meshname.elem")  or die "Can't open '$meshname.elem' for reading: $!\n";
+  my $numelem = <$elemfile>;
+  $numelem =~ s/^\s*//;
+  $numelem =~ s/\s*$//;
+
+  my $elefile;
+  open($elefile, ">$meshname.ele") or die "Can't open '$meshname.ele' for writing: $!\n";
+  print $elefile "$numelem 4 1\n";
+  
+  # Use 1 based ordering.
+  for (my $i=1; $i <= $numelem; $i++) {
+    # Check for tets
+    my $line = <$elemfile>;
+    chomp($line);
+    $line =~ s/^\s*//;
+    $line =~ s/\s*$//;
+    my @a = split(/\s+/, $line);
+    die "I expected tetrahedra, but found this element instead: '$line'\n" 
+        if $a[0] ne 'Tt';
+    print $elefile join(" ", $i, $a[1]+1, $a[2]+1, $a[3]+1, $a[4]+1, $a[5]) . "\n";
+  }
+}

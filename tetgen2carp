@@ -1,0 +1,91 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+sub usage {
+##############################################
+# Dies with arguments.
+#
+
+  print <<_HERE
+Usage: $0 meshname
+
+Reads in meshname.node, meshname.ele.  
+
+Writes out meshname.pts and meshname.elem with 0 based ordering.
+
+_HERE
+;
+
+  die join(" ", @_) . "\n" if @_;
+}
+
+
+usage("Need a meshname!") if scalar @ARGV != 1;
+my $meshname = shift(@ARGV);
+
+{
+  open(my $nodefile, "$meshname.node") or die "Can't open '$meshname.node' for reading: $!\n";
+  #read the number of nodes.
+  my ($numpoints, $dim, $numattr, $boundary) = split(/\s+/, <$nodefile>);
+  die "Error: need 3D points for the following code to work.\n" if $dim != 3;
+
+  open(my $ptsfile, ">$meshname.pts") or die "Can't open '$meshname.pts' for writing: $!\n";
+  print $ptsfile "$numpoints\n";
+
+  # print out the pts file.
+  my $num_points_read = 0;
+  while ($num_points_read < $numpoints
+         and defined($nodefile)
+         and my $line = <$nodefile>
+      ) {
+    chomp($line);
+    $line =~ s/^\s+//;
+    $line =~ s/\s+$//;
+    $line =~ s/#.*$//;
+    next if not $line;
+    my @numbers = split(/\s+/, $line);
+    print $ptsfile join(" ", @numbers[1,2,3]) . "\n";
+    my $point = $num_points_read+1;
+    die "Error in point conversion, expected point $point, found $numbers[0] instead.\n" if $point != $numbers[0];
+    $num_points_read++;
+  }
+  die "Expected $numpoints, but only read $num_points_read.\n" if $num_points_read != $numpoints;
+  close($ptsfile);
+  close($nodefile);
+}
+
+{
+  open(my $elefile, "$meshname.ele") or die "Can't open 'meshname.ele' for reading: $!\n";
+  #read in the number of elements.
+  my ($numelem, $points_per_tet, $has_attributes) = split(/\s+/, <$elefile>);
+  
+  open(my $elemfile, ">$meshname.elem") or die "Can't open 'meshname.elem' for writing: $!\n";
+  print $elemfile "$numelem\n";
+  
+  #print out the elem file.
+  my $num_elem_read = 0;
+  while ($num_elem_read < $numelem
+         and defined($elefile)
+         and my $line = <$elefile>
+      ) {
+    chomp($line);
+    $line =~ s/^\s+//;
+    $line =~ s/\s+$//;
+    my ($tet_number, @element) = split(/\s+/, $line);
+    my $read_tet_number = $num_elem_read+1;
+    die "Error in element conversion, expected element $read_tet_number, found $tet_number instead\n" if $read_tet_number != $tet_number;
+
+    my $region = 0;
+    if ($has_attributes) {
+      $region = $element[$points_per_tet];
+    }
+    #convert to 0 based ordering.
+    for (my $i=0; $i<4; $i++) {
+      $element[$i]--;
+    }
+    print $elemfile "Tt " . join(" ", @element[0,1,2,3], $region) . "\n";
+    $num_elem_read++;
+  }
+}
+
