@@ -1,7 +1,7 @@
 This project contains miscellaneous scripts that are commonly used for
 scripts.  They are released in the public domain.
 
-Files for manipulating CARP meshes:
+Scripts for manipulating CARP meshes:
  * carp_all2carp_tet - Takes in a hybrid carp mesh and returns a carp tetrahedral mesh.
  * create_fibers - Use this script as a template to create your own fibers.
  * extract_edges - extracts the edges from a .tri file.
@@ -14,7 +14,11 @@ Files for manipulating CARP meshes:
  * triangle_convert - converts a mesh generated with "triangle" into a carp mesh.
  * surfaces_only - removes nodes that aren't a part of a surface.
 
-Files for processing CARP output files:
+Scripts for converting CARP meshes:
+ * carp2tetgen - converts a tetrahedral CARP mesh into a tetgen mesh.
+ * tetgen2carp - converts a tetgen mesh into a CARP mesh.
+
+Scripts for processing CARP output files:
  * apd - takes in a .dat file of times and voltages.  Finds APD
  * curvature.py - measure the curvature of a CARP mesh.
  * expand_dat.py - takes a intracellular dat file as input, expands it to the extracellular space.
