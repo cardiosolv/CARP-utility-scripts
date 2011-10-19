@@ -1,0 +1,73 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+unless(@ARGV == 3){
+  die "Usage: regionchange <elem file> <points file> <new region #>\n";
+}
+
+my $tetfile   = $ARGV[0];
+my $ptsfile   = $ARGV[1];
+my $newregion = $ARGV[2];
+
+my %elemtypes;
+
+$elemtypes{'Tt'} = 4;
+$elemtypes{'Hx'} = 8;
+
+# First get list of points
+open(PTS, "<" . $ptsfile) || die "Failed to open points file $ptsfile for read: $!\n";
+chomp(my @pts = <PTS>);
+close(PTS) || die "Failed to close points file $ptsfile after read: $!\n";
+
+# convert to a hash for speed
+my %ptshash;
+
+foreach my $point (@pts){
+  $ptshash{$point} = 1;
+}
+
+undef @pts;
+
+# Read in elems file
+open(ELEMS, "<" . $tetfile) || die "Failed to open elems file $tetfile for read: $!\n";
+chomp(my @elems = <ELEMS>);
+close(ELEMS) || die "Failed to close elems file $tetfile after read: $!\n";
+
+# re-print header
+print shift(@elems) . "\n";
+
+# start processing
+foreach my $line (@elems){
+  my @tmp = split(/\s+/, $line);
+  my $elemtype = shift(@tmp);
+  my $elempts;
+  if(defined($elemtypes{$elemtype})){
+      $elempts = $elemtypes{$elemtype}
+  }else{
+      die "Failed to find elem type or definition of elem type in .elem file: ".$line."\n";
+  }
+
+  die "Wrong number of points in this line of $tetfile: $line -- expected $elempts points.\n" unless (@tmp == $elempts + 1);
+
+  my @found;
+  my $foundcount = 0;
+
+  print $elemtype . " ";
+
+  for(my $point = 0; $point < $elempts; $point++){
+#    @found = grep(/^$tmp[$point]$/, @pts);
+#    if(@found == 1){
+    if(defined($ptshash{$tmp[$point]})){
+      $foundcount++;
+    }
+    print $tmp[$point] . " ";
+  }
+  if($foundcount == $elempts){
+    print STDERR "Found elem -- changing region to $newregion.\n";
+    print $newregion . "\n";
+  }else{
+    print $tmp[$elempts] . "\n";
+  }
+}
