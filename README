@@ -13,7 +13,7 @@ Scripts for manipulating CARP meshes:
  * set_algebra - Helps with the construction of .vtx files.
  * triangle_convert - converts a mesh generated with "triangle" into a carp mesh.
  * surfaces_only - removes nodes that aren't a part of a surface.
-
+ * itris_to_etris.pl - converts a .tris file from an intracellular-only mesh to one for an extracellular mesh
 Scripts for converting CARP meshes:
  * carp2tetgen - converts a tetrahedral CARP mesh into a tetgen mesh.
  * tetgen2carp - converts a tetgen mesh into a CARP mesh.
