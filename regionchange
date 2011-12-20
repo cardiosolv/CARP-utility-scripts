@@ -65,7 +65,7 @@ foreach my $line (@elems){
     print $tmp[$point] . " ";
   }
   if($foundcount == $elempts){
-    print STDERR "Found elem -- changing region to $newregion.\n";
+#    print STDERR "Found elem -- changing region to $newregion.\n";
     print $newregion . "\n";
   }else{
     print $tmp[$elempts] . "\n";
