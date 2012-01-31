@@ -125,13 +125,13 @@ class IgbFile:
         buffer.tofile(self.file)
 
     def get_all_times(self):
-        a = np.zeros([self.dim_t],self.dtype)
+        a = np.zeros([self.dim_t],self.typetype)
         for ii in xrange(0,self.dim_t):
             a[ii] = start_time + self.fac_t*ii
         return a
 
     def get_all_values_at_node(self, node):
-        a = np.zeros([self.dim_t],self.dtype)
+        a = np.zeros([self.dim_t],self.typetype)
         for ii in xrange(0,self.dim_t):
             a[ii] = self.get_data(node, ii)
         return a
@@ -336,7 +336,7 @@ if __name__=="__main__":
         
         for t in xrange(0,infile.dim_t):
             input = infile.get_all_nodes_at_time(t)
-            output = np.zeros([len(index)],input.dtype)
+            output = np.zeros([len(index)],input.typetype)
             for ii in xrange(0,len(index)):
                 output[ii] = input[index[ii]]
             outfile.set_all_nodes_at_time(t, output)
