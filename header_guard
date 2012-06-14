@@ -1,28 +1,20 @@
 #!/usr/bin/perl -w
 use strict;
 
-my $filename;
-my @infile;
-my $define_flag;
-my @header;
-my @footer;
-
-
-foreach $filename (@ARGV) {
+foreach my $filename (@ARGV) {
     open(FILE, $filename) or die "Can't open file $filename: $!\n";
-    @infile = <FILE>;
+    my @infile = <FILE>;
     close(FILE);
 
-    if (! ($infile[0] =~ /HEADER GUARD/)) {
-	$define_flag = $filename;
-	$define_flag =~ tr/a-z/A-Z/; 
-	$define_flag =~ s!^.*/!!;
-	$define_flag =~ tr/./_/;
-	$define_flag = "__" . $define_flag;
-	$define_flag .= "__";
-	
-	open(OUTFILE, ">$filename") or die "Can't open file $filename for writing: $!\n";
-	print OUTFILE <<_EOF
+    my $define_flag;
+    $define_flag = $filename;
+    $define_flag =~ tr/a-z/A-Z/; 
+    $define_flag =~ s!^.*/!!;
+    $define_flag =~ tr/./_/;
+    $define_flag = "__" . $define_flag;
+    $define_flag .= "__";
+
+    my $header = <<_EOF
 //// HEADER GUARD ///////////////////////////
 // If automatically generated, keep above
 // comment as first line in file.
@@ -31,13 +23,24 @@ foreach $filename (@ARGV) {
 //// HEADER GUARD ///////////////////////////
 _EOF
 ;
-	print OUTFILE @infile;
-	print OUTFILE <<_EOF
+    my $footer = <<_EOF
 //// HEADER GUARD ///////////////////////////
 #endif
 //// HEADER GUARD ///////////////////////////
 _EOF
 ;
-	close(OUTFILE);
+    if ($infile[0] =~ /HEADER GUARD/) {
+      foreach my $temp (split(/\n/, $header)) {
+        shift @infile;
+      }
+      foreach my $temp (split(/\n/, $footer)) {
+        pop @infile;
+      }
     }
+
+    open(OUTFILE, ">$filename") or die "Can't open file $filename for writing: $!\n";
+    print OUTFILE $header;
+    print OUTFILE @infile;
+    print OUTFILE $footer;
+    close(OUTFILE);
 }
