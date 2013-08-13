@@ -1,0 +1,152 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+sub usage {
+##############################################
+# Dies with arguments.
+#
+
+  print <<_HERE
+Usage: $0 meshname
+
+Reads in meshname.vtk, which should be a triangular surface mesh.  
+
+Writes out meshname.smesh suitable for use with tetgen (1 based ordering).
+
+_HERE
+;
+
+  die join(" ", @_) . "\n" if @_;
+}
+
+usage("Need a meshname!") if scalar @ARGV != 1;
+my $meshname = shift(@ARGV);
+
+my $vtkfile;
+open($vtkfile, "$meshname.vtk") or die "Can't open '$meshname.vtk' for reading: $!\n";
+
+my $smeshfile;
+open($smeshfile, ">$meshname.smesh") or die "Can't open '$meshname.smesh' for writing: $!\n";
+
+#read until you get to the POINTS line.
+my $numpoints=0;
+{
+  my $found_points=0;
+  my $line;
+  while ($line=<$vtkfile>) {
+    #remove comments
+    $line =~ s/#.*$//;
+    if ($line =~ /^POINTS\s*(\d+)/) {
+      #grab the number of points
+      $numpoints = $1;
+      $found_points = 1;
+      last;
+    }
+  }
+  die "Couldn't find the number of points" if not $found_points;
+} 
+
+#read in all the points and print them out.
+{
+
+  print $smeshfile "# Part 1 - node list\n";
+  print $smeshfile "# node count, 3 dim, no attribute, no boundary marker\n";
+  print $smeshfile "$numpoints 3 0 0\n";
+  my $num_read_points = 0;
+  my @numbers = ();
+  while ($num_read_points < $numpoints
+         and defined($vtkfile) 
+         and my $line=<$vtkfile>
+      ) {
+    #strip line
+    chomp($line);
+    $line =~ s/^\s*//;
+    $line =~ s/\s*$//;
+    #remove comments
+    $line =~ s/#.*$//;
+    #get the numbers out
+    push @numbers, split(/\s+/, $line);
+    #print out the points
+    while (scalar @numbers >= 3) {
+      print $smeshfile join(" ", $num_read_points+1, @numbers[0,1,2]) . "\n";
+      $num_read_points++;
+      shift @numbers;
+      shift @numbers;
+      shift @numbers;
+    }
+  }
+  die "Number of points read ($num_read_points) doesn't match " .
+      "number of points specified ($numpoints)\n" 
+      if ($num_read_points != $numpoints); 
+}
+#read until you get to the polygons line
+my $numpoly = 0;
+my $numintegers = 0;
+{
+  my $found_polygons=0;
+
+  while (my $line=<$vtkfile>) {
+    #remove comments
+    $line =~ s/#.*$//;
+    if ($line =~ /^POLYGONS\s*(\d+)\s*(\d+)/) {
+      #grab the number of triangles
+      $numpoly = $1;
+      $numintegers = $2;
+      $found_polygons = 1;
+      last;
+    }
+  }
+  die "Couldn't find the number of polygons" if not $found_polygons;
+}
+#print each surface
+{
+  print $smeshfile "# Part 2 - facet list\n";
+  print $smeshfile "# facet count, no boundary marker\n";
+  print $smeshfile "$numpoly 0\n";
+  my $num_read_poly = 0;
+  my $num_read_integers=0;
+  my @numbers = ();
+  while ($num_read_poly < $numpoly 
+         and $num_read_integers < $numintegers
+         and defined($vtkfile) 
+         and my $line=<$vtkfile>
+      ) {
+    #strip line
+    chomp($line);
+    $line =~ s/^\s*//;
+    $line =~ s/\s*$//;
+    #remove comments
+    $line =~ s/#.*$//;
+    #get the numbers out
+    push @numbers, split(/\s+/, $line);
+    #print out the polygons
+    while (scalar @numbers >= 1 and scalar @numbers >= $numbers[0]+1) {
+      #get the number of corners
+      my $num_corners = shift @numbers;
+      $num_read_integers++;
+      my @poly = ($num_corners);
+      for (my $i=0; $i<$num_corners; $i++) {
+        push @poly, 1+shift @numbers;
+        $num_read_integers++;
+      }
+      print $smeshfile join(" ", @poly) . "\n";
+      $num_read_poly++;
+    }
+  }
+  die "Number of polygons read ($num_read_poly) doesn't match " .
+      "number of polygons specified ($numpoly)\n" 
+      if ($num_read_poly != $numpoly); 
+  die "Number of integers read ($num_read_integers) doesn't match " .
+      "number of integers specified ($numintegers)\n" 
+      if ($num_read_poly != $numpoly); 
+}
+
+
+#  No holes
+print $smeshfile "# Part 3 - hole list\n";
+print $smeshfile "0\n";
+
+#  No regions.
+print $smeshfile "# Part 4 - region list\n";
+print $smeshfile "0\n";
