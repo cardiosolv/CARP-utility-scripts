@@ -1,0 +1,59 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+sub usage {
+  print <<EOF
+$0 meshname file.vtx
+
+Prints out file.dat, which contains 0 or 1 based on whether or not
+that point is in the vtx file.
+
+EOF
+;
+
+  die(join(" ", @_)) if scalar(@_);
+}
+
+usage("Only supply two arguments") if (scalar(@ARGV) != 2);
+
+my $meshname = shift @ARGV;
+my $vtxFilename = shift @ARGV;
+
+# Get the number of nodes from the meshname
+my $numNodes;
+{
+  my $ptsFile;
+  open($ptsFile, "$meshname.pts") or die "Couldn't open $meshname.pts for reading!";
+  $numNodes = <$ptsFile>;
+  chomp($numNodes);
+  close($ptsFile);
+}
+
+# Read in the vtx file
+my %vtxSet;
+{
+  my $vtxFile;
+  open($vtxFile, "$vtxFilename") or die "Couldn't open $vtxFilename for reading!";
+  my $temp;
+  $temp = <$vtxFile>;
+  $temp = <$vtxFile>;
+  while (my $line = <$vtxFile>) {
+    chomp($line);
+    $line =~ s/^\s+//;
+    $line =~ s/\s+$//;
+    $vtxSet{$line} = 1;
+  }
+  close($vtxFile);
+}
+
+my $datFilename=$vtxFilename;
+$datFilename =~ s/vtx$/dat/;
+my $datFile;
+open($datFile, ">$datFilename") or die "Couldn't open $datFilename for writing!";
+for (my $inode=0; $inode<$numNodes; $inode++) {
+  my $isInVtx = 0;
+  $isInVtx = 1 if (defined($vtxSet{$inode}));
+  print $datFile "$isInVtx\n";
+}
+close($datFile);
