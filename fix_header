@@ -1,0 +1,61 @@
+#!/usr/bin/perl -w
+
+use strict;
+use File::Temp qw/ tempfile tempdir /;
+use File::Copy;
+
+sub usage {
+################################
+
+  print <<EOF
+$0: filename1 [filename2 [filename3 ...]]
+Checks the files for a header line and fixes/adds them if they need it.
+
+Does not add headers to .lon, .sheet, and .dat files.
+EOF
+;
+  die(join("\n", @_) . "\n") if @_;
+} 
+
+usage("Need at least one filename") if not @ARGV;
+
+foreach my $filename (@ARGV) {
+  #skip some carp files on purpose, even though they look like they
+  #have headers.
+  next if ($filename =~ m,\.lon,);
+  next if ($filename =~ m,\.sheet,);
+  next if ($filename =~ m,\.dat,);
+  if (not open(my $file, "<", "$filename")) {
+    print "Can't open $filename for reading: !$\n";
+  } else {
+    my $numLines = 0;
+    my $hasHeader = 0;
+    my $headerNumLines = 0;
+    if (defined($file) and my $firstLine = <$file>) {
+      if ($firstLine =~ m,^\s*(\d+)\s*$,) {
+        $hasHeader = 1;
+        $headerNumLines = $1;
+      } else {
+        $numLines++;
+      }
+    }
+    $numLines++ while (<$file>);
+
+    close($file);
+    next if ($hasHeader and $headerNumLines == $numLines);
+
+    open($file, "<", $filename) or die("Something strange happened, can't reread file: $!\n");
+    my ($outfile, $outfilename) = tempfile();
+    if (not $outfilename) { die("Can't open $outfilename for writing: $!\n"); }
+    print $outfile "$numLines\n";
+    my $throwaway = <$file> if $hasHeader;
+    while (my $line = <$file>) {
+      print $outfile $line;
+    }
+    close($file);
+    close($outfile);
+    move($outfilename, $filename);
+    unlink($outfilename);
+  }
+}
+
