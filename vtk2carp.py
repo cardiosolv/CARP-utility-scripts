@@ -5,18 +5,21 @@ import sys, getopt
 import gzip
 import re
 
-usagestring="Usage: vtk2carp.py [-h|--help] | [-i <vtkfile>|--input=<vtkfile> -m <string>|--meshname=<string> [-r <tissue region 1, 2, ..., N>|--regions=<tissue region 1, 2, ..., N>"
+usagestring="Usage: vtk2carp.py [-h|--help] | [-i <vtkfile>|--input=<vtkfile> -m <string>|--meshname=<string> [-r <tissue region 1, 2, ..., N>|--regions=<tissue region 1, 2, ..., N> [-s <scaling factor>|--scaling=<scaling factor> (default=1.0)]"
 
 inputfile=''
 meshname=''
 regions=[]
 
 try:
-	opts, args = getopt.getopt(sys.argv[1:], "hi:m:r:", ["help", "input=", "meshname=", "regions="])
+	opts, args = getopt.getopt(sys.argv[1:], "hi:m:r:s:", ["help", "input=", "meshname=", "regions=", "scaling="])
 except getopt.GetoptError as err:
 	print str(err)
 	print usagestring
 	sys.exit(2)
+
+# by default scaling is not changed
+scaling = 1.0
 
 for opt, arg in opts:
 	print "Processing option: "+opt+", argument: "+arg
@@ -33,7 +36,9 @@ for opt, arg in opts:
 	elif opt in ("-r", "--regions"):
 		regions = re.split(', *', arg)
 		print "Using regions "+', '.join(map(str, regions))
-	 
+	elif opt in ("-s", "--scaling"):
+		scaling = float(arg)
+
 if not inputfile or not meshname:
 	print "Invalid Input:"
 	print usagestring
@@ -53,7 +58,8 @@ ptshandle = gzip.open(meshname+'.pts.gz', 'wb')
 ptshandle.write("%d\n" % npoints)
 for ipoint in range(npoints):
 	# print "%f %f %f" % points.GetPoint(ipoint)
-	ptshandle.write("%f %f %f\n" % points.GetPoint(ipoint))
+	scaledPt = tuple(( x*scaling for x in points.GetPoint(ipoint) ))
+	ptshandle.write("%f %f %f\n" % scaledPt)
 ptshandle.close()
 del points
 
