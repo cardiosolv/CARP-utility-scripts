@@ -18,7 +18,7 @@ Scripts for converting CARP meshes:
  * carp2tetgen - converts a tetrahedral CARP mesh into a tetgen mesh.
  * tetgen2carp - converts a tetgen mesh into a CARP mesh.
  * regionchange - given a .elem file and a list of point numbers, change the region of each element for which all points are in the list to a given region number
-
+ * vtk2carp - converts a vtk unstructured grid into CARP format
 Scripts for processing CARP output files:
  * apd - takes in a .dat file of times and voltages.  Finds APD
  * curvature.py - measure the curvature of a CARP mesh.
