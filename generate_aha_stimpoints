@@ -4,7 +4,7 @@ use strict;
 use Math::Trig;
 
 unless(@ARGV == 2){
-    die "Usage: surfaces_only <pts file> <vtx file>\n";
+    die "Usage: surfaces_only <pts file> <vtx file>\nPoint order is:\n17\n15\n14\n13\n16\n10\n9\n8\n7\n12\n11\n4\n3\n2\n1\n6\n5\n";
 }
 
 my @args = @ARGV;
