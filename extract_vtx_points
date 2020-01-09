@@ -1,0 +1,217 @@
+#!/usr/bin/perl -w
+
+use strict;
+use Math::Trig;
+
+unless(@ARGV == 2){
+    die "Usage: surfaces_only <pts file> <vtx file>\n";
+}
+
+my @args = @ARGV;
+
+my $ptsfile = shift(@args);
+my $vtxfile = shift(@args);
+
+open(PTS, "<$ptsfile") || die "Failed to open file $ptsfile: $!\n";
+chomp(my @points = <PTS>);
+close(PTS);
+
+# This will keep track of points that are required by the surfaces
+my %usedpts = ();
+
+# remove the header from the pts file
+shift(@points);
+
+# Pad because the input from the surfaces is base1
+#sub header_check{
+#    my @tmp = split(/\s+/, $points[0]);
+#    if(@tmp > 1){
+#	unshift(@points, "");
+#    }
+#}
+
+#&header_check;
+
+# Load all used points. There will be duplicates
+open(SURF, "<$vtxfile") || die "Failed to open surface file $vtxfile: $!\n";
+chomp(my @surface = <SURF>);
+close(SURF);
+
+# remove vtxfile header
+shift(@surface);
+shift(@surface);
+
+foreach my $line(@surface){
+	my @tmp = split(/\s+/, $line);
+	foreach my $node (@tmp){
+		unless(defined $usedpts{$node}){
+			$usedpts{$node} = 1;
+		}else{
+			$usedpts{$node}++;
+		}
+	}
+}
+
+my @uniqpts = (keys %usedpts);
+
+# We don't need this hash anymore
+undef %usedpts;
+
+# It's best if this is in numerical order
+@uniqpts = sort({$a <=> $b} @uniqpts);
+
+# Now, we need to move the data from every point that is used, and we
+# need to also write a renumbering file for triangle_renum.
+# Everything is base1.
+
+#open(NEWPTS, ">$ptsfile.new") || die "Failed to open file $ptsfile.new: $!\n";
+#foreach my $number (@uniqpts){
+#    print STDERR $number . "\n";
+    # print $points[$number] . "\n";
+#}
+#close(NEWPTS);
+
+# find minima and maxima
+my @ptmaxes;
+my @ptmins;
+
+for(my $i=0; $i<3; $i++){
+	$ptmaxes[$i] = -999999999;
+	$ptmins[$i] = 999999999;
+}
+
+foreach my $ptid (@uniqpts){
+	my @coords = split(/\s+/, $points[$ptid]);
+	for(my $i=0; $i<3; $i++){
+		if($coords[$i] > $ptmaxes[$i]){
+			$ptmaxes[$i] = $coords[$i];
+		}
+		if($coords[$i] < $ptmins[$i]){
+			$ptmins[$i] = $coords[$i];
+		}
+	}
+}
+
+
+my @partheights;
+my @sizes;
+my @center;
+
+for(my $i=0; $i<3; $i++){
+	$sizes[$i] = $ptmaxes[$i] - $ptmins[$i];
+	$center[$i] = $ptmins[$i] + $sizes[$i]/2;
+	print STDERR $ptmins[$i] . " < coord[".$i."] < " . $ptmaxes[$i] . "\n";
+	print STDERR "Size in dimension ".$i." is: ".$sizes[$i]."\n";
+	print STDERR "Center point in dimensinon ".$i." is: ".$center[$i]."\n";
+}	
+
+# figure out smallest max radius
+my $radius = 0;
+
+if($sizes[0] > $sizes[1]){
+	$radius = $sizes[1]/2;
+}else{
+	$radius = $sizes[0]/2;
+}
+
+# apical
+$partheights[0] = $ptmins[2]+($sizes[2]*0.025); # apex
+$partheights[1] = $ptmins[2]+($sizes[2]*0.05)+($sizes[2]*(1/6)); #apical part
+$partheights[2] = $ptmins[2]+($sizes[2]*0.05)+($sizes[2]*(3/6)); #mid-cavity part
+$partheights[3] = $ptmins[2]+($sizes[2]*0.05)+($sizes[2]*(5/6)); #basal part
+
+# zfuzz is the distance around the Z plane at each part height at which points will be selected
+my $zfuzz = 500; #um
+
+# cycle through the four parts (apex, apical part, mid-cavity part, basal part)
+# segregate out points at the center height of each part
+
+my @partpoints;
+
+foreach my $ptid (@uniqpts){
+	my @coords = split(/\s+/, $points[$ptid]);
+	$coords[4] = $ptid; # this is needed later
+
+	for(my $part = 0; $part < 4; $part++){
+		if(abs($coords[2]-$partheights[$part]) <= $zfuzz){
+			#for(my $dim=0; $dim<3; $dim++){
+			#	$partpoints[$part][$dim] = $coords[$dim];
+			#}
+			push(@{$partpoints[$part]}, @coords);
+			last; # break out of this for loop if we found a match
+		}
+		print "There are ".@{$partpoints[$part]}." points in part ".$part."\n";
+	}
+}
+
+#print STDERR "Part centers are:\n";
+#for(my $part=0; $part<4; $part++){
+#	for(my $i=0; $i<3; $i++){
+#		print STDERR $partpoints[$part][$i]." ";
+#	}
+#	print STDERR "\n";
+#}
+
+# We now should have a ring of points at each part height.
+# Next, for each part, find the "ideal" stim points at the $radius and then find the closest point on the ring
+
+# calculate the distance between two points passed as two arrays
+sub distance {
+	my @pt0 = @{$_[0]};
+	my @pt1 = @{$_[1]};
+	my @distance;
+
+	for(my $dim = 0; $dim < 3; $dim++){
+		$distance[$dim] = abs($pt1[$dim]-$pt0[$dim]);
+	}
+	return sqrt($distance[0]**2+$distance[1]**2+$distance[2]**2);
+}
+
+my @stimpoints;
+for(my $part = 0; $part < 4; $part++){
+
+	my $sectors = 6;
+	my @targetpt;
+
+	# set the Z here, later we will set the X and Y
+	$targetpt[2] = $partheights[$part];
+	
+	if ( $part == 0 ){
+		$sectors = 1;
+	}
+	if ( $part == 1 ){
+		$sectors = 2;
+	}
+	if ( $part > 1 ){
+		$sectors = 6;
+	}
+	my $sectordegrees;
+	$sectordegrees = 360/$sectors;
+	for( my $sector = 0; $sector < $sectors; $sector++){
+
+		print STDERR "Processing sector ".$sector." for part ".$part."\n";
+		my $sectorangle = $sectordegrees * $sector;
+		$targetpt[0] = $center[0] + ($radius * sin(deg2rad($sectorangle)));
+		$targetpt[1] = $center[1] + ($radius * cos(deg2rad($sectorangle)));
+		print STDERR "Target: ".$targetpt[0]." ".$targetpt[1]." ".$targetpt[2]."\n";
+		# At this point we have the target point. Now for this part, we need to go through and calculate the distance between each point and the target point
+		# Once each time we find a closer one, we change the point.
+		my $mindist = 999999999;
+		my $targetptid;
+
+		# iterate through the points in this part, find the closest one, and print
+		foreach my $point ($partpoints[$part]){
+			my $distance = distance(\@targetpt, $point);
+			print STDERR "Distance: ".$distance."\n";
+			if ($distance < $mindist){
+				$mindist = $distance;
+				$targetptid = $point->[3];
+				print STDERR "Found new closest point with distance ".$distance."\n";
+			}
+		}
+		print $targetptid."\n";
+	}
+}
+
+# This is no longer needed
+undef @points;
